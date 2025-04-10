@@ -7,10 +7,12 @@ _openmp_mutex=5.1=1_gnu
 annotated-types=0.6.0=py313h06a4308_0
 anyio=4.6.2=py313h06a4308_0
 asttokens=2.0.5=pyhd3eb1b0_0
+brotli-python=1.0.9=py313h6a678d5_9
 bzip2=1.0.8=h5eee18b_6
 ca-certificates=2025.2.25=h06a4308_0
 certifi=2025.1.31=py313h06a4308_0
 cffi=1.17.1=py313h1fdaa30_1
+charset-normalizer=3.3.2=pyhd3eb1b0_0
 click=8.1.8=py313h06a4308_0
 click-default-group=1.2.4=pyhd8ed1ab_1
 cryptography=44.0.1=py313h7825ff9_0
@@ -60,6 +62,7 @@ pydantic=2.10.3=py313h06a4308_0
 pydantic-core=2.27.1=py313h4aa5aa6_0
 pygments=2.15.1=py313h06a4308_1
 pynput=1.8.1=py313h78bf25f_0
+pysocks=1.7.1=py313h06a4308_0
 python=3.13.2=hf623796_100_cp313
 python-dateutil=2.9.0post0=py313h06a4308_2
 python-ulid=3.0.0=pyhff2d567_1
@@ -67,6 +70,7 @@ python-xlib=0.33=pyhff2d567_1
 python_abi=3.13=0_cp313
 pyyaml=6.0.2=py313h5eee18b_0
 readline=8.2=h5eee18b_0
+requests=2.32.3=py313h06a4308_1
 rich=13.9.4=py313h06a4308_0
 setuptools=75.8.0=py313h06a4308_0
 six=1.16.0=pyhd3eb1b0_1
@@ -85,6 +89,7 @@ typing-extensions=4.12.2=py313h06a4308_0
 typing_extensions=4.12.2=py313h06a4308_0
 tzdata=2025a=h04d1e81_0
 uc-micro-py=1.0.1=py313h06a4308_0
+urllib3=2.3.0=py313h06a4308_0
 wcwidth=0.2.5=pyhd3eb1b0_0
 wheel=0.45.1=py313h06a4308_0
 xz=5.6.4=h5eee18b_1
