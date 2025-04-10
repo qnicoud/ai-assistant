@@ -1,0 +1,35 @@
+Screen {
+    layout: vertical;
+}
+
+.box { 
+    background: black 0%;
+    height: 1fr;
+    margin: 2 10;
+}
+
+.prompt {
+    height: 0.15fr;
+    border: round orange; 
+}
+
+
+.query {
+    align: right middle;
+    padding: 0 3;
+    border: round grey;
+    /*height: auto;*/
+    width: 70%;
+}
+
+.spacer {
+    width: 30%;
+}
+
+.response {
+    border: round rgb(0, 167, 255);
+}
+
+VerticalScroll {
+    background: black 0%;
+}
