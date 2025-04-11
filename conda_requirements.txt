@@ -44,7 +44,7 @@ matplotlib-inline=0.1.6=py313h06a4308_0
 mdit-py-plugins=0.3.0=py313h06a4308_0
 mdurl=0.1.0=py313h06a4308_0
 ncurses=6.4=h6a678d5_0
-ollama=0.6.4=cpu_hf157611_
+ollama=0.6.5=cpu_hf157611_
 openai=1.60.1=py313h06a4308_0
 openssl=3.0.16=h5eee18b_0
 parso=0.8.4=py313h06a4308_0
