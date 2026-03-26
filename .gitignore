@@ -1,4 +1,5 @@
 .conda_config
+.ropeproject/
 .env
 __pycache__/
 *.pyc
