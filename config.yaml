@@ -1,0 +1,20 @@
+ollama:
+  url: "http://127.0.0.1:11434"
+  default_model: "codestral"
+  temperature: 0.7
+  max_tokens: 4096
+
+email:
+  # Path to the Outlook for Mac "Data" directory.
+  # Default: ~/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Main Profile/Data
+  # Uncomment and override if your profile is in a different location:
+  # outlook_db_path: "/Users/yourname/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Main Profile/Data"
+
+  # Model used for email summarization (can differ from the coding model)
+  summary_model: "mistral"
+
+  # Maximum number of emails to include in a single summarization run
+  max_emails_per_summary: 20
+
+  # Maximum characters to extract from each email body
+  max_body_chars: 2000
