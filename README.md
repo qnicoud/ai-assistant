@@ -89,6 +89,37 @@ Open `http://127.0.0.1:8000` in your browser.
 
 ---
 
+### Manual install (conda / existing Python environment)
+
+If you already manage your own Python environment (conda, pyenv, system Python):
+
+```bash
+# 1. Create and activate an environment with Python 3.13
+conda create -n ai-assistant python=3.13
+conda activate ai-assistant
+
+# 2. Install uv (if not already installed)
+pip install uv
+
+# 3. Install the package with the extras you need
+uv pip install -e .                    # core CLI only
+uv pip install -e ".[docs]"            # + document RAG (PDF, DOCX, XLSX)
+uv pip install -e ".[tui]"             # + Textual full-screen TUI
+uv pip install -e ".[web]"             # + Django web interface
+uv pip install -e ".[docs,tui,web]"    # everything
+
+# 4. Copy the environment template
+cp .env.example .env
+
+# 5. (Optional) copy config to the standard location
+mkdir -p ~/.config/ai-assistant
+cp config.yaml ~/.config/ai-assistant/config.yaml
+```
+
+The `config.yaml` in the repo root is used automatically when running from the repository directory.
+
+---
+
 ### Ollama setup (required for all install methods)
 
 Install Ollama, start the server, then pull models:
