@@ -9,6 +9,7 @@ Features:
 - **Code review** with structured feedback (bugs, security, performance, style)
 - **Code generation** from natural language
 - **Email search and summarization** from local Outlook for Mac data
+- **Document RAG** — ingest PDF, Word, and Excel files and ask questions about them
 - Optional **Textual TUI** for a full-screen terminal experience
 
 ---
@@ -45,10 +46,17 @@ Choose models based on your Mac's RAM:
 | 16 GB | `ollama pull codestral` | `ollama pull mistral` |
 | 8 GB  | `ollama pull codellama` | `ollama pull mistral` |
 
+For document RAG, also pull the embedding model (~275 MB, works on all M1 Macs):
+
+```bash
+ollama pull nomic-embed-text
+```
+
 ```bash
 # Example for 16 GB Mac
 ollama pull codestral
 ollama pull mistral
+ollama pull nomic-embed-text
 ```
 
 ### 3. Create the conda environment
@@ -64,8 +72,14 @@ conda activate ai-assistant
 # Core install (CLI only)
 uv pip install -e .
 
+# With document RAG (PDF, DOCX, XLSX support)
+uv pip install -e ".[docs]"
+
 # With the Textual TUI
 uv pip install -e ".[tui]"
+
+# Everything at once
+uv pip install -e ".[docs,tui]"
 ```
 
 ### 5. Configure
@@ -78,11 +92,15 @@ cp .env.example .env
 
 The default `config.yaml` works out of the box for most setups. Override values there or via environment variables:
 
-| Variable          | Default                       | Description                    |
-|-------------------|-------------------------------|--------------------------------|
-| `OLLAMA_URL`      | `http://127.0.0.1:11434`      | Ollama server URL              |
-| `OLLAMA_MODEL`    | `codestral`                   | Default model for coding tasks |
-| `OUTLOOK_DB_PATH` | *(standard Outlook Mac path)* | Path to Outlook Data directory |
+| Variable               | Default                       | Description                       |
+|------------------------|-------------------------------|-----------------------------------|
+| `OLLAMA_URL`           | `http://127.0.0.1:11434`      | Ollama server URL                 |
+| `OLLAMA_MODEL`         | `codestral`                   | Default model for coding tasks    |
+| `OUTLOOK_DB_PATH`      | *(standard Outlook Mac path)* | Path to Outlook Data directory    |
+| `DOCS_DB_PATH`         | `~/.config/ai-assistant/docs.db` | Vector store location          |
+| `SHAREPOINT_CLIENT_ID` | —                             | Azure AD app client ID (optional) |
+| `SHAREPOINT_TENANT_ID` | —                             | Azure AD tenant ID (optional)     |
+| `SHAREPOINT_SITE_ID`   | —                             | SharePoint site ID (optional)     |
 
 ---
 
@@ -147,6 +165,64 @@ ai-assist generate "add pagination support" --context-file api.py
 # Pipe output directly to a file
 ai-assist generate "a CLI argument parser for a backup tool" > cli.py
 ```
+
+### Documents (RAG)
+
+> **Requires** `uv pip install -e ".[docs]"` and `ollama pull nomic-embed-text`.
+
+Ingest documents from a local directory or file:
+
+```bash
+ai-assist docs ingest ~/Documents/reports/
+ai-assist docs ingest ~/Downloads/contract.pdf
+```
+
+Ask questions against ingested documents:
+
+```bash
+ai-assist docs ask "What was the Q3 revenue?"
+ai-assist docs ask "Summarize the key risks in the contract" --no-citations
+```
+
+List and manage the document store:
+
+```bash
+ai-assist docs list                   # show all ingested documents
+ai-assist docs remove ~/old/report.pdf
+ai-assist docs clear                  # delete all documents (asks for confirmation)
+```
+
+Use RAG mode in interactive chat (retrieves relevant document context per message):
+
+```bash
+ai-assist chat --docs
+```
+
+Toggle RAG in-session with `/docs on` and `/docs off`.
+
+#### SharePoint (optional)
+
+> **Requires** `uv pip install -e ".[docs,graph]"` and Azure AD app registration (see below).
+
+```bash
+ai-assist docs sharepoint-ls --folder "/Shared Documents/Reports"
+ai-assist docs ingest-sharepoint --folder "/Shared Documents/Reports"
+```
+
+**SharePoint setup** (one-time):
+
+1. Register an app in [Azure AD](https://portal.azure.com) → App registrations → New registration
+2. Set **Application type** to *Public client / native*
+3. Enable **Allow public client flows** under Authentication
+4. Add **Delegated permissions**: `Files.Read.All`, `Sites.Read.All`
+5. Copy the **Application (client) ID** and **Directory (tenant) ID**
+6. Add to `.env` or `config.yaml`:
+   ```
+   SHAREPOINT_CLIENT_ID=your-client-id
+   SHAREPOINT_TENANT_ID=your-tenant-id
+   SHAREPOINT_SITE_ID=your-site-id   # from the SharePoint site URL
+   ```
+7. On first run you will be prompted to authenticate in a browser. The token is cached locally afterward.
 
 ### Email (Outlook for Mac)
 
@@ -253,3 +329,17 @@ ai-assist chat --model codellama
 ```bash
 uv pip install -e ".[tui]"
 ```
+
+**`No embeddings returned`** — pull the embedding model:
+```bash
+ollama pull nomic-embed-text
+```
+
+**`sqlite-vec` import error** — install the docs extra:
+```bash
+uv pip install -e ".[docs]"
+```
+
+**PDF yields no text** — the file may be a scanned image-only PDF. OCR is not supported in v1. Try a text-based PDF.
+
+**SharePoint auth fails** — verify that *Allow public client flows* is enabled on your Azure AD app registration and that the `client_id` / `tenant_id` values match exactly.

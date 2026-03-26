@@ -18,3 +18,25 @@ email:
 
   # Maximum characters to extract from each email body
   max_body_chars: 2000
+
+docs:
+  # Where to store the vector database (SQLite + sqlite-vec)
+  # db_path: "~/.config/ai-assistant/docs.db"
+
+  # Text chunking settings
+  chunk_size: 512      # characters per chunk
+  chunk_overlap: 64    # overlap between consecutive chunks
+
+  # Embedding model (must be pulled in Ollama: ollama pull nomic-embed-text)
+  embedding_model: "nomic-embed-text"
+  embed_batch_size: 20  # chunks per embedding request
+
+  # Retrieval settings
+  top_k: 5               # number of chunks retrieved per query
+  max_context_chars: 3000  # max chars injected into the LLM prompt
+
+  # SharePoint (optional — requires [graph] extras and Azure AD app registration)
+  # sharepoint_client_id: ""
+  # sharepoint_tenant_id: ""
+  # sharepoint_site_id: ""
+  # sharepoint_drive_id: ""
