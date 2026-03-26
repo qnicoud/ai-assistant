@@ -468,3 +468,35 @@ def tui(ctx: click.Context, model: str | None) -> None:
     config: Config = ctx.obj["config"]
     app = AiAssistantApp(config=config, model=model)
     app.run()
+
+
+# ---------------------------------------------------------------------------
+# web
+# ---------------------------------------------------------------------------
+
+
+@main.command()
+@click.option("--host", default="127.0.0.1", show_default=True, help="Host to bind to.")
+@click.option("--port", default=8000, show_default=True, help="Port to listen on.")
+@click.pass_context
+def web(ctx: click.Context, host: str, port: int) -> None:
+    """Launch the Django web frontend."""
+    try:
+        import django  # noqa: F401
+    except ImportError:
+        console.print(
+            "[bold red]Error:[/] Django not installed.\n"
+            "Run: uv pip install 'ai-assistant[web]'",
+            err=True,
+        )
+        sys.exit(1)
+
+    import os
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ai_assistant.web.settings")
+
+    from django.core.management import call_command
+    console.print(
+        f"[bold cyan]AI Assistant Web[/] starting at [bold]http://{host}:{port}[/]\n"
+        "Press [bold]Ctrl+C[/] to stop."
+    )
+    call_command("runserver", f"{host}:{port}")

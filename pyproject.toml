@@ -28,6 +28,9 @@ docs = [
 graph = [
     "msal>=1.28",
 ]
+web = [
+    "django>=5.1",
+]
 
 [project.scripts]
 ai-assist = "ai_assistant.cli:main"
