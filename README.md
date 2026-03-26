@@ -14,83 +14,115 @@ Features:
 
 ---
 
-## Prerequisites
+## Installation
 
-- macOS on Apple Silicon (M1/M2/M3)
-- [Homebrew](https://brew.sh)
-- [Conda](https://docs.conda.io) + [uv](https://github.com/astral-sh/uv)
-- Microsoft Outlook for Mac (for email features), synced at least once
+### Quick install (recommended — no developer tools required)
+
+Clone the repository and run the installer. It will download everything it needs (Python 3.13, uv) automatically:
+
+```bash
+git clone https://github.com/yourname/ai-assistant.git
+cd ai-assistant
+./install.sh
+```
+
+The script installs the package to `~/.local/share/ai-assistant/` and creates an `ai-assist` command in `~/.local/bin/`. It also walks you through Ollama setup.
+
+**Optional extras** (pass `--extras` to enable features):
+
+```bash
+./install.sh --extras tui,docs,web   # TUI + document RAG + web interface (default)
+./install.sh --extras docs,web,graph # + SharePoint connector
+```
 
 ---
 
-## Setup
+### Developer install
 
-### 1. Install Ollama
+For contributors or anyone who wants an editable install inside the repo:
 
 ```bash
-brew install ollama
+./install.sh --dev
 ```
 
-Start the Ollama server (runs in the background):
+This creates `.venv/` in the repository root, installs the package in editable mode, and installs dev dependencies (pytest, ruff, mypy, black). Activate with:
+
+```bash
+source .venv/bin/activate
+```
+
+---
+
+### Docker install (Linux / advanced users)
+
+Build a self-contained Docker image:
+
+```bash
+./install.sh --docker
+# or
+docker build -t ai-assistant .
+```
+
+Run (Linux — Ollama on host via `--network host`):
+```bash
+docker run -it --rm --network host \
+  -v ~/.config/ai-assistant:/root/.config/ai-assistant \
+  ai-assistant ai-assist chat
+```
+
+Run (macOS — Docker Desktop does not support `--network host`):
+```bash
+docker run -it --rm \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  -v ~/.config/ai-assistant:/root/.config/ai-assistant \
+  ai-assistant ai-assist chat
+```
+
+Run the web interface:
+```bash
+docker run -it --rm -p 8000:8000 \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  -v ~/.config/ai-assistant:/root/.config/ai-assistant \
+  ai-assistant ai-assist web --host 0.0.0.0
+```
+Open `http://127.0.0.1:8000` in your browser.
+
+---
+
+### Ollama setup (required for all install methods)
+
+Install Ollama, start the server, then pull models:
+
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+```
 
 ```bash
 ollama serve &
 ```
 
-### 2. Pull models
-
-Choose models based on your Mac's RAM:
+Choose models based on your RAM:
 
 | RAM   | Code model              | General / Email model |
 |-------|-------------------------|-----------------------|
 | 16 GB | `ollama pull codestral` | `ollama pull mistral` |
 | 8 GB  | `ollama pull codellama` | `ollama pull mistral` |
 
-For document RAG, also pull the embedding model (~275 MB, works on all M1 Macs):
+For document RAG, also pull the embedding model (~275 MB):
 
 ```bash
 ollama pull nomic-embed-text
 ```
 
-```bash
-# Example for 16 GB Mac
-ollama pull codestral
-ollama pull mistral
-ollama pull nomic-embed-text
-```
+---
 
-### 3. Create the conda environment
+### Configuration
 
-```bash
-conda create -n ai-assistant python=3.13
-conda activate ai-assistant
-```
-
-### 4. Install the package
-
-```bash
-# Core install (CLI only)
-uv pip install -e .
-
-# With document RAG (PDF, DOCX, XLSX support)
-uv pip install -e ".[docs]"
-
-# With the Textual TUI
-uv pip install -e ".[tui]"
-
-# Everything at once
-uv pip install -e ".[docs,tui]"
-```
-
-### 5. Configure
-
-Copy the environment template and edit as needed:
-
-```bash
-cp .env.example .env
-```
-
-The default `config.yaml` works out of the box for most setups. Override values there or via environment variables:
+The default `config.yaml` is copied to `~/.config/ai-assistant/config.yaml` on first install and works out of the box. Override values there or via environment variables:
 
 | Variable               | Default                       | Description                       |
 |------------------------|-------------------------------|-----------------------------------|
