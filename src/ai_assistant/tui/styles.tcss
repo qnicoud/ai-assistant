@@ -2,7 +2,7 @@ Screen {
     layout: vertical;
 }
 
-.box { 
+.box {
     background: black 0%;
     height: 1fr;
     margin: 2 10;
@@ -10,15 +10,13 @@ Screen {
 
 .prompt {
     height: 0.15fr;
-    border: round orange; 
+    border: round orange;
 }
-
 
 .query {
     align: right middle;
     padding: 0 3;
     border: round grey;
-    /*height: auto;*/
     width: 70%;
 }
 

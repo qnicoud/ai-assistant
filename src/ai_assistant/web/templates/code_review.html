@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Code Review — AI Assistant{% endblock %}
+{% block content %}
+<div class="page-title">Code Review</div>
+
+<div class="glass-card">
+  <div class="toolbar">
+    <div class="form-group" style="margin:0;flex:1">
+      <input type="text" id="filename" placeholder="filename.py (optional)" style="width:200px">
+    </div>
+    <select id="focus-select">
+      {% for f in focus_options %}<option value="{{ f }}">{{ f|capfirst }}</option>{% endfor %}
+    </select>
+    <select id="model-select">
+      {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary" id="review-btn">🔍 Review</button>
+    <button class="btn btn-ghost btn-sm hidden" id="stop-btn">■ Stop</button>
+  </div>
+
+  <div class="form-group">
+    <label>Paste code or upload a file</label>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".py,.js,.ts,.go,.rs,.java,.c,.cpp,.sh,.sql">
+      Drop a file here or click to browse
+      <span id="file-label" class="text-sm text-muted mt-1"></span>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <textarea id="code-input" placeholder="…or paste code directly here" rows="10"
+              style="font-family: 'SF Mono','Fira Code',monospace;font-size:13px"></textarea>
+  </div>
+
+  <div class="stream-output prose" id="output"
+       data-placeholder="Review will appear here…"></div>
+</div>
+
+<script>
+const codeInput  = document.getElementById("code-input");
+const fileInput  = document.getElementById("file-input");
+const fileLabel  = document.getElementById("file-label");
+const dropZone   = document.getElementById("drop-zone");
+const reviewBtn  = document.getElementById("review-btn");
+const stopBtn    = document.getElementById("stop-btn");
+const outputEl   = document.getElementById("output");
+const focusSel   = document.getElementById("focus-select");
+const modelSel   = document.getElementById("model-select");
+const filenameEl = document.getElementById("filename");
+
+initDropZone(dropZone, fileInput, fileLabel);
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { codeInput.value = e.target.result; };
+  reader.readAsText(file);
+  if (!filenameEl.value) filenameEl.value = file.name;
+});
+
+let abortCtrl = null;
+
+reviewBtn.addEventListener("click", async () => {
+  const code = codeInput.value.trim();
+  if (!code) return;
+
+  reviewBtn.classList.add("hidden");
+  stopBtn.classList.remove("hidden");
+  outputEl.textContent = "";
+  outputEl.classList.remove("prose");
+
+  abortCtrl = new AbortController();
+
+  let fullText = "";
+  try {
+    const resp = await fetch("{% url 'review_stream' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        filename: filenameEl.value || "code",
+        focus: focusSel.value,
+        model: modelSel?.value || null,
+      }),
+      signal: abortCtrl.signal,
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const d = line.slice(6);
+        if (d === "[DONE]") { reader.cancel(); break; }
+        fullText += d;
+        outputEl.textContent = fullText;
+      }
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") outputEl.textContent = `Error: ${e.message}`;
+  }
+
+  if (fullText) {
+    outputEl.innerHTML = markdownToHtml(fullText);
+    outputEl.classList.add("prose");
+  }
+
+  reviewBtn.classList.remove("hidden");
+  stopBtn.classList.add("hidden");
+  abortCtrl = null;
+});
+
+stopBtn.addEventListener("click", () => {
+  abortCtrl?.abort();
+  reviewBtn.classList.remove("hidden");
+  stopBtn.classList.add("hidden");
+});
+</script>
+{% endblock %}

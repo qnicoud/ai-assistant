@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Email — AI Assistant{% endblock %}
+{% block content %}
+<div class="page-title">Email</div>
+
+{% if outlook_error %}
+<div class="glass-card" style="border-color:rgba(255,80,80,0.35)">
+  <p style="color:var(--accent-danger,#ff6b6b);margin:0 0 .5rem"><strong>Outlook database unavailable</strong></p>
+  <pre style="font-size:12px;white-space:pre-wrap;margin:0;opacity:.8">{{ outlook_error }}</pre>
+</div>
+{% else %}
+
+<!-- Search / browse toolbar -->
+<div class="glass-card">
+  <div class="toolbar" style="flex-wrap:wrap;gap:.5rem">
+    <input type="text" id="search-input" placeholder="Search emails…" style="flex:1;min-width:160px">
+    <select id="limit-select">
+      <option value="10">10 results</option>
+      <option value="20" selected>20 results</option>
+      <option value="50">50 results</option>
+    </select>
+    <button class="btn btn-primary" id="search-btn">🔍 Search</button>
+    <button class="btn btn-ghost" id="recent-btn">Recent</button>
+  </div>
+
+  <!-- Results table -->
+  <div id="results-wrap" style="margin-top:1rem;display:none">
+    <table class="data-table" id="results-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>From</th>
+          <th>Date</th>
+          <th>Folder</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
+  <p id="results-empty" class="text-muted text-sm" style="display:none;margin-top:.75rem">No messages found.</p>
+  <p id="results-error" class="text-sm" style="display:none;margin-top:.75rem;color:var(--accent-danger,#ff6b6b)"></p>
+</div>
+
+<!-- Email detail panel -->
+<div class="glass-card hidden" id="detail-card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+    <div>
+      <div style="font-size:1.05rem;font-weight:600" id="detail-subject"></div>
+      <div class="text-muted text-sm" id="detail-meta"></div>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="detail-close">✕ Close</button>
+  </div>
+  <hr style="border:none;border-top:1px solid var(--border);margin:.75rem 0">
+  <pre id="detail-body" style="white-space:pre-wrap;font-size:13px;line-height:1.6;margin:0"></pre>
+</div>
+
+<!-- Summarise panel -->
+<div class="glass-card">
+  <div class="toolbar">
+    <span style="font-weight:500">Summarise</span>
+    <input type="text" id="sum-query" placeholder="Filter (optional)" style="flex:1">
+    <select id="sum-limit">
+      <option value="10">10 emails</option>
+      <option value="20" selected>20 emails</option>
+      <option value="50">50 emails</option>
+    </select>
+    <select id="model-select">
+      {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary" id="sum-btn">⚡ Summarise</button>
+    <button class="btn btn-ghost btn-sm hidden" id="sum-stop-btn">■ Stop</button>
+  </div>
+  <div class="stream-output prose" id="sum-output"
+       data-placeholder="Summary will appear here…"></div>
+</div>
+
+{% endif %}
+
+<script>
+{% if not outlook_error %}
+// ── Search / browse ──────────────────────────────────────────────────────────
+const searchInput  = document.getElementById("search-input");
+const limitSel     = document.getElementById("limit-select");
+const searchBtn    = document.getElementById("search-btn");
+const recentBtn    = document.getElementById("recent-btn");
+const resultsWrap  = document.getElementById("results-wrap");
+const resultsBody  = document.getElementById("results-body");
+const resultsEmpty = document.getElementById("results-empty");
+const resultsError = document.getElementById("results-error");
+
+async function fetchMessages(query) {
+  [resultsWrap, resultsEmpty, resultsError].forEach(el => el.style.display = "none");
+  try {
+    const resp = await postJSON("{% url 'email_search' %}", {
+      query: query || "",
+      limit: parseInt(limitSel.value),
+    });
+    const data = await resp.json();
+    if (data.error) {
+      resultsError.textContent = data.error;
+      resultsError.style.display = "";
+      return;
+    }
+    if (!data.messages.length) {
+      resultsEmpty.style.display = "";
+      return;
+    }
+    resultsBody.innerHTML = "";
+    data.messages.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="${m.is_read ? "" : "badge"}">${escapeHtml(m.subject)}</span></td>
+        <td class="text-sm">${escapeHtml(m.sender_name || m.sender_email)}</td>
+        <td class="text-sm text-muted">${escapeHtml((m.date || "").slice(0, 16))}</td>
+        <td class="text-sm text-muted">${escapeHtml(m.folder || "")}</td>
+        <td><button class="btn btn-ghost btn-sm view-btn" data-id="${m.id}">View</button></td>
+      `;
+      resultsBody.appendChild(tr);
+      // store full message data for preview
+      tr.querySelector(".view-btn").dataset.body = m.body_preview || "";
+      tr.querySelector(".view-btn").dataset.subject = m.subject;
+      tr.querySelector(".view-btn").dataset.meta =
+        `${m.sender_name} <${m.sender_email}> · ${m.date}${m.folder ? " · " + m.folder : ""}`;
+    });
+    resultsWrap.style.display = "";
+  } catch (e) {
+    resultsError.textContent = `Error: ${e.message}`;
+    resultsError.style.display = "";
+  }
+}
+
+searchBtn.addEventListener("click", () => fetchMessages(searchInput.value.trim()));
+recentBtn.addEventListener("click", () => fetchMessages(""));
+searchInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") fetchMessages(searchInput.value.trim());
+});
+
+// ── Detail panel ─────────────────────────────────────────────────────────────
+const detailCard    = document.getElementById("detail-card");
+const detailSubject = document.getElementById("detail-subject");
+const detailMeta    = document.getElementById("detail-meta");
+const detailBody    = document.getElementById("detail-body");
+const detailClose   = document.getElementById("detail-close");
+
+document.getElementById("results-body").addEventListener("click", e => {
+  const btn = e.target.closest(".view-btn");
+  if (!btn) return;
+  detailSubject.textContent = btn.dataset.subject;
+  detailMeta.textContent    = btn.dataset.meta;
+  detailBody.textContent    = btn.dataset.body || "(body not available in preview)";
+  detailCard.classList.remove("hidden");
+  detailCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+
+detailClose.addEventListener("click", () => detailCard.classList.add("hidden"));
+
+// ── Summarise ─────────────────────────────────────────────────────────────────
+const sumQueryEl  = document.getElementById("sum-query");
+const sumLimitSel = document.getElementById("sum-limit");
+const modelSel    = document.getElementById("model-select");
+const sumBtn      = document.getElementById("sum-btn");
+const sumStopBtn  = document.getElementById("sum-stop-btn");
+const sumOutput   = document.getElementById("sum-output");
+
+let sumAbort = null;
+
+sumBtn.addEventListener("click", async () => {
+  sumBtn.classList.add("hidden");
+  sumStopBtn.classList.remove("hidden");
+  sumOutput.textContent = "";
+  sumOutput.classList.remove("prose");
+
+  sumAbort = new AbortController();
+
+  let fullText = "";
+  try {
+    const resp = await fetch("{% url 'email_summarize_stream' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: sumQueryEl.value.trim() || null,
+        limit: parseInt(sumLimitSel.value),
+        model: modelSel?.value || null,
+      }),
+      signal: sumAbort.signal,
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const d = line.slice(6);
+        if (d === "[DONE]") { reader.cancel(); break; }
+        fullText += d;
+        sumOutput.textContent = fullText;
+      }
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") sumOutput.textContent = `Error: ${e.message}`;
+  }
+
+  if (fullText) {
+    sumOutput.innerHTML = markdownToHtml(fullText);
+    sumOutput.classList.add("prose");
+  }
+
+  sumBtn.classList.remove("hidden");
+  sumStopBtn.classList.add("hidden");
+  sumAbort = null;
+});
+
+sumStopBtn.addEventListener("click", () => {
+  sumAbort?.abort();
+  sumBtn.classList.remove("hidden");
+  sumStopBtn.classList.add("hidden");
+});
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Load recent messages on page open
+fetchMessages("");
+{% endif %}
+</script>
+{% endblock %}

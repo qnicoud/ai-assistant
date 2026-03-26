@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Settings — AI Assistant{% endblock %}
+{% block content %}
+<div class="page-title">Settings</div>
+
+<!-- Health card -->
+<div class="glass-card">
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <span style="font-weight:500">Ollama</span>
+    <span class="badge {% if ollama_status == 'ok' %}badge-ok{% else %}badge-err{% endif %}">
+      {% if ollama_status == 'ok' %}● Connected{% else %}● Unreachable{% endif %}
+    </span>
+    {% if models %}
+    <span class="text-sm text-muted">{{ models|length }} model{{ models|length|pluralize }} available</span>
+    {% endif %}
+    <span style="font-weight:500;margin-left:1rem">RAG</span>
+    <span class="badge {% if docs_available %}badge-ok{% else %}badge-warn{% endif %}">
+      {% if docs_available %}● Ready{% else %}● Unavailable{% endif %}
+    </span>
+  </div>
+</div>
+
+<!-- Ollama settings -->
+<form id="settings-form">
+<div class="glass-card">
+  <div style="font-weight:600;margin-bottom:1rem">Ollama</div>
+  <div class="form-group">
+    <label for="ollama-url">API URL</label>
+    <input type="text" id="ollama-url" name="ollama.url"
+           value="{{ config.ollama.url }}" placeholder="http://127.0.0.1:11434">
+  </div>
+  <div class="form-group">
+    <label for="ollama-model">Default model</label>
+    <input type="text" id="ollama-model" name="ollama.default_model"
+           value="{{ config.ollama.default_model }}" placeholder="codestral">
+  </div>
+  <div class="form-group">
+    <label for="ollama-temp">Temperature</label>
+    <input type="number" id="ollama-temp" name="ollama.temperature"
+           value="{{ config.ollama.temperature }}" min="0" max="2" step="0.05" style="max-width:120px">
+  </div>
+  <div class="form-group">
+    <label for="ollama-tokens">Max tokens</label>
+    <input type="number" id="ollama-tokens" name="ollama.max_tokens"
+           value="{{ config.ollama.max_tokens }}" min="256" max="32768" step="256" style="max-width:140px">
+  </div>
+</div>
+
+<!-- Email settings -->
+<div class="glass-card">
+  <div style="font-weight:600;margin-bottom:1rem">Email</div>
+  <div class="form-group">
+    <label for="email-db">Outlook DB path</label>
+    <input type="text" id="email-db" name="email.outlook_db_path"
+           value="{{ config.email.outlook_db_path }}"
+           placeholder="~/Library/Group Containers/…">
+  </div>
+  <div class="form-group">
+    <label for="email-model">Summary model</label>
+    <input type="text" id="email-model" name="email.summary_model"
+           value="{{ config.email.summary_model }}" placeholder="mistral">
+  </div>
+  <div class="form-group">
+    <label for="email-limit">Max emails per summary</label>
+    <input type="number" id="email-limit" name="email.max_emails_per_summary"
+           value="{{ config.email.max_emails_per_summary }}" min="1" max="100" style="max-width:120px">
+  </div>
+  <div class="form-group">
+    <label for="email-body">Max body chars</label>
+    <input type="number" id="email-body" name="email.max_body_chars"
+           value="{{ config.email.max_body_chars }}" min="200" step="200" style="max-width:140px">
+  </div>
+</div>
+
+<!-- Docs / RAG settings -->
+<div class="glass-card">
+  <div style="font-weight:600;margin-bottom:1rem">Documents (RAG)</div>
+  <div class="form-group">
+    <label for="docs-db">Vector DB path</label>
+    <input type="text" id="docs-db" name="docs.db_path"
+           value="{{ config.docs.db_path }}" placeholder="~/.config/ai-assistant/docs.db">
+  </div>
+  <div class="form-group">
+    <label for="docs-embed">Embedding model</label>
+    <input type="text" id="docs-embed" name="docs.embedding_model"
+           value="{{ config.docs.embedding_model }}" placeholder="nomic-embed-text">
+  </div>
+  <div class="form-group" style="display:flex;gap:1rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:100px">
+      <label for="docs-chunk">Chunk size</label>
+      <input type="number" id="docs-chunk" name="docs.chunk_size"
+             value="{{ config.docs.chunk_size }}" min="64" max="4096" step="64">
+    </div>
+    <div style="flex:1;min-width:100px">
+      <label for="docs-overlap">Overlap</label>
+      <input type="number" id="docs-overlap" name="docs.chunk_overlap"
+             value="{{ config.docs.chunk_overlap }}" min="0" max="512" step="16">
+    </div>
+    <div style="flex:1;min-width:100px">
+      <label for="docs-topk">Top-k results</label>
+      <input type="number" id="docs-topk" name="docs.top_k"
+             value="{{ config.docs.top_k }}" min="1" max="20">
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:.75rem;align-items:center">
+  <button type="submit" class="btn btn-primary">💾 Save</button>
+  <span id="save-msg" class="text-sm text-muted" style="display:none"></span>
+</div>
+</form>
+
+<script>
+const form    = document.getElementById("settings-form");
+const saveMsg = document.getElementById("save-msg");
+
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+
+  // Collect all named inputs into a nested object {section: {key: value}}
+  const flat = Object.fromEntries(new FormData(form).entries());
+  const payload = {};
+  for (const [dotKey, value] of Object.entries(flat)) {
+    const [section, key] = dotKey.split(".");
+    if (!section || !key) continue;
+    payload[section] ??= {};
+    // Preserve numeric fields as numbers
+    const num = Number(value);
+    payload[section][key] = value !== "" && !isNaN(num) && String(num) === value ? num : value;
+  }
+
+  try {
+    const resp = await postJSON("{% url 'settings_save' %}", payload);
+    const data = await resp.json();
+    if (data.ok) {
+      saveMsg.textContent = "Saved — services reloaded.";
+      saveMsg.style.color = "var(--accent-primary)";
+    } else {
+      saveMsg.textContent = `Error: ${data.error}`;
+      saveMsg.style.color = "var(--accent-danger, #ff6b6b)";
+    }
+  } catch (err) {
+    saveMsg.textContent = `Error: ${err.message}`;
+    saveMsg.style.color = "var(--accent-danger, #ff6b6b)";
+  }
+
+  saveMsg.style.display = "";
+  setTimeout(() => { saveMsg.style.display = "none"; }, 4000);
+});
+</script>
+{% endblock %}

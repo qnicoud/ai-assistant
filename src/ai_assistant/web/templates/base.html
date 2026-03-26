@@ -1,0 +1,58 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AI Assistant{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <script src="{% static 'js/app.js' %}"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <span>✦</span> AI Assistant
+    </div>
+
+    <a href="{% url 'chat' %}"     class="nav-link {% if active == 'chat' %}active{% endif %}">
+      <span class="icon">💬</span> <span>Chat</span>
+    </a>
+    <a href="{% url 'review' %}"   class="nav-link {% if active == 'review' %}active{% endif %}">
+      <span class="icon">🔍</span> <span>Code Review</span>
+    </a>
+    <a href="{% url 'generate' %}" class="nav-link {% if active == 'generate' %}active{% endif %}">
+      <span class="icon">⚡</span> <span>Generate</span>
+    </a>
+    <a href="{% url 'docs' %}"     class="nav-link {% if active == 'docs' %}active{% endif %}">
+      <span class="icon">📚</span> <span>Documents</span>
+    </a>
+    <a href="{% url 'email' %}"    class="nav-link {% if active == 'email' %}active{% endif %}">
+      <span class="icon">✉️</span> <span>Email</span>
+    </a>
+
+    <div class="sidebar-bottom">
+      <a href="{% url 'settings' %}" class="nav-link {% if active == 'settings' %}active{% endif %}">
+        <span class="icon">⚙️</span> <span>Settings</span>
+      </a>
+      <div class="theme-toggle" onclick="toggleTheme()">
+        <div class="toggle-switch"></div>
+        <span id="theme-label">Light mode</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main-content">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="flash {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+</body>
+</html>
