@@ -9,6 +9,8 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
+from ai_assistant.docs.config import DocsConfig
+
 load_dotenv()
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".config" / "ai-assistant" / "config.yaml"
@@ -46,6 +48,7 @@ class EmailConfig:
 class Config:
     ollama: OllamaConfig = field(default_factory=OllamaConfig)
     email: EmailConfig = field(default_factory=EmailConfig)
+    docs: DocsConfig = field(default_factory=DocsConfig)
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
@@ -58,6 +61,7 @@ class Config:
 
         ollama_raw = raw.get("ollama", {})
         email_raw = raw.get("email", {})
+        docs_raw = raw.get("docs", {})
 
         ollama = OllamaConfig(
             url=os.environ.get("OLLAMA_URL", ollama_raw.get("url", "http://127.0.0.1:11434")),
@@ -78,7 +82,29 @@ class Config:
             max_body_chars=int(email_raw.get("max_body_chars", 2000)),
         )
 
-        return cls(ollama=ollama, email=email)
+        docs = DocsConfig(
+            db_path=os.environ.get("DOCS_DB_PATH", docs_raw.get("db_path", DocsConfig().db_path)),
+            chunk_size=int(docs_raw.get("chunk_size", 512)),
+            chunk_overlap=int(docs_raw.get("chunk_overlap", 64)),
+            embedding_model=docs_raw.get("embedding_model", "nomic-embed-text"),
+            embed_batch_size=int(docs_raw.get("embed_batch_size", 20)),
+            top_k=int(docs_raw.get("top_k", 5)),
+            max_context_chars=int(docs_raw.get("max_context_chars", 3000)),
+            sharepoint_client_id=os.environ.get(
+                "SHAREPOINT_CLIENT_ID", docs_raw.get("sharepoint_client_id", "")
+            ),
+            sharepoint_tenant_id=os.environ.get(
+                "SHAREPOINT_TENANT_ID", docs_raw.get("sharepoint_tenant_id", "")
+            ),
+            sharepoint_site_id=os.environ.get(
+                "SHAREPOINT_SITE_ID", docs_raw.get("sharepoint_site_id", "")
+            ),
+            sharepoint_drive_id=os.environ.get(
+                "SHAREPOINT_DRIVE_ID", docs_raw.get("sharepoint_drive_id", "")
+            ),
+        )
+
+        return cls(ollama=ollama, email=email, docs=docs)
 
 
 def _local_config_path() -> Path | None:
