@@ -160,6 +160,39 @@ class OllamaBackend:
                 if chunk.get("done"):
                     break
 
+    def embed(
+        self,
+        texts: list[str],
+        *,
+        model: str | None = None,
+    ) -> list[list[float]]:
+        """Generate embeddings for a batch of texts via /api/embed.
+
+        Returns a list of float vectors, one per input text.
+        Requires the embedding model to be pulled in Ollama
+        (e.g. ollama pull nomic-embed-text).
+        """
+        self._check_connection()
+        payload = {
+            "model": model or "nomic-embed-text",
+            "input": texts,
+        }
+        try:
+            response = self._client.post("/api/embed", json=payload)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise OllamaError(
+                f"Ollama /api/embed returned HTTP {e.response.status_code}: {e.response.text}"
+            )
+        data = response.json()
+        embeddings = data.get("embeddings")
+        if not embeddings:
+            raise OllamaError(
+                "Ollama /api/embed returned no embeddings. "
+                "Make sure the model is pulled: ollama pull nomic-embed-text"
+            )
+        return [list(map(float, vec)) for vec in embeddings]
+
     def list_models(self) -> list[str]:
         """Return names of models available in this Ollama instance."""
         self._check_connection()
