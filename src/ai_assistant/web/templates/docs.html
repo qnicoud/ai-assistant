@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Documents — AI Assistant{% endblock %}
+{% block content %}
+<div class="page-title">Documents</div>
+
+{% if not docs_available %}
+<div class="glass-card" style="border-color:rgba(255,200,0,0.35)">
+  <p style="margin:0;color:var(--text-secondary)">
+    RAG features require the <code>docs</code> extras.<br>
+    <code>uv pip install 'ai-assistant[docs]'</code> and restart the server.
+  </p>
+</div>
+{% else %}
+
+<!-- Ingest panel -->
+<div class="glass-card">
+  <div class="toolbar" style="flex-wrap:wrap">
+    <span style="font-weight:500">Ingest</span>
+    <input type="text" id="ingest-path" placeholder="/path/to/file.pdf or /directory"
+           style="flex:1;min-width:200px">
+    <button class="btn btn-primary" id="ingest-btn">⬆ Ingest</button>
+  </div>
+  <div id="ingest-status" style="display:none;margin-top:.75rem">
+    <div class="progress-bar-wrap" id="ingest-progress-wrap" style="display:none">
+      <div class="progress-bar-fill" style="width:100%;animation:progress-pulse 1.5s ease-in-out infinite"></div>
+    </div>
+    <p id="ingest-msg" class="text-sm text-muted" style="margin:.4rem 0 0"></p>
+  </div>
+</div>
+
+<!-- Document list -->
+<div class="glass-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+    <span style="font-weight:500">Ingested documents</span>
+    <button class="btn btn-ghost btn-sm" id="clear-btn" style="color:var(--accent-danger,#ff6b6b)">
+      🗑 Clear all
+    </button>
+  </div>
+
+  {% if documents %}
+  <table class="data-table" id="docs-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Chunks</th>
+        <th>Ingested</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="docs-body">
+      {% for doc in documents %}
+      <tr data-path="{{ doc.path }}">
+        <td>{{ doc.filename }}</td>
+        <td class="text-muted text-sm">{{ doc.chunk_count }}</td>
+        <td class="text-muted text-sm">{{ doc.ingested_at|slice:":16" }}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm delete-btn" data-path="{{ doc.path }}">✕</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p id="docs-empty" class="text-muted text-sm">No documents ingested yet.</p>
+  {% endif %}
+</div>
+
+<!-- Ask panel -->
+<div class="glass-card">
+  <div class="toolbar">
+    <span style="font-weight:500">Ask</span>
+    <input type="text" id="question-input" placeholder="Ask a question about your documents…"
+           style="flex:1" id="question-input">
+    <select id="model-select">
+      {% for m in models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary" id="ask-btn">Ask</button>
+    <button class="btn btn-ghost btn-sm hidden" id="ask-stop-btn">■ Stop</button>
+  </div>
+  <div class="stream-output prose" id="ask-output"
+       data-placeholder="Answer will appear here…"></div>
+  <div class="citations hidden" id="citations-block"></div>
+</div>
+
+{% endif %}
+
+<script>
+{% if docs_available %}
+// ── Ingest ───────────────────────────────────────────────────────────────────
+const ingestPathEl    = document.getElementById("ingest-path");
+const ingestBtn       = document.getElementById("ingest-btn");
+const ingestStatus    = document.getElementById("ingest-status");
+const ingestProgressWrap = document.getElementById("ingest-progress-wrap");
+const ingestMsg       = document.getElementById("ingest-msg");
+
+ingestBtn.addEventListener("click", async () => {
+  const path = ingestPathEl.value.trim();
+  if (!path) return;
+
+  ingestBtn.disabled = true;
+  ingestStatus.style.display = "";
+  ingestProgressWrap.style.display = "";
+  ingestMsg.textContent = "Starting ingestion…";
+
+  try {
+    const resp = await postJSON("{% url 'docs_ingest' %}", { path });
+    const data = await resp.json();
+    if (data.error) {
+      ingestMsg.textContent = `Error: ${data.error}`;
+      ingestProgressWrap.style.display = "none";
+      ingestBtn.disabled = false;
+      return;
+    }
+    pollIngestStatus(data.token);
+  } catch (e) {
+    ingestMsg.textContent = `Error: ${e.message}`;
+    ingestProgressWrap.style.display = "none";
+    ingestBtn.disabled = false;
+  }
+});
+
+function pollIngestStatus(token) {
+  const interval = setInterval(async () => {
+    try {
+      const resp = await fetch(`{% url 'docs_ingest_status' %}?token=${token}`);
+      const data = await resp.json();
+
+      if (data.status === "running") {
+        ingestMsg.textContent = "Ingesting…";
+        return;
+      }
+
+      clearInterval(interval);
+      ingestProgressWrap.style.display = "none";
+      ingestBtn.disabled = false;
+
+      if (data.status === "done") {
+        ingestMsg.textContent = `Done: ${data.ingested} ingested, ${data.skipped} skipped.`;
+        if (data.documents) refreshDocTable(data.documents);
+      } else {
+        ingestMsg.textContent = `Error: ${data.error}`;
+      }
+    } catch (e) {
+      clearInterval(interval);
+      ingestMsg.textContent = `Polling error: ${e.message}`;
+      ingestProgressWrap.style.display = "none";
+      ingestBtn.disabled = false;
+    }
+  }, 1500);
+}
+
+// ── Document table ───────────────────────────────────────────────────────────
+const docsBody  = document.getElementById("docs-body");
+const docsEmpty = document.getElementById("docs-empty");
+const clearBtn  = document.getElementById("clear-btn");
+
+function refreshDocTable(documents) {
+  if (!docsBody) return;
+
+  if (!documents.length) {
+    docsBody.innerHTML = "";
+    if (docsEmpty) docsEmpty.style.display = "";
+    return;
+  }
+  if (docsEmpty) docsEmpty.style.display = "none";
+
+  docsBody.innerHTML = documents.map(doc => `
+    <tr data-path="${escDoc(doc.path)}">
+      <td>${escDoc(doc.filename)}</td>
+      <td class="text-muted text-sm">${doc.chunk_count}</td>
+      <td class="text-muted text-sm">${(doc.ingested_at || "").slice(0, 16)}</td>
+      <td><button class="btn btn-ghost btn-sm delete-btn" data-path="${escDoc(doc.path)}">✕</button></td>
+    </tr>
+  `).join("");
+}
+
+document.addEventListener("click", async e => {
+  const btn = e.target.closest(".delete-btn");
+  if (!btn) return;
+
+  const path = btn.dataset.path;
+  try {
+    const resp = await postJSON("{% url 'docs_delete' %}", { path });
+    const data = await resp.json();
+    if (data.ok) refreshDocTable(data.documents);
+    else alert(data.error || "Delete failed");
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+clearBtn?.addEventListener("click", async () => {
+  if (!confirm("Remove all ingested documents?")) return;
+  try {
+    await postJSON("{% url 'docs_clear' %}", {});
+    refreshDocTable([]);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+// ── Ask ──────────────────────────────────────────────────────────────────────
+const questionEl   = document.getElementById("question-input");
+const modelSel     = document.getElementById("model-select");
+const askBtn       = document.getElementById("ask-btn");
+const askStopBtn   = document.getElementById("ask-stop-btn");
+const askOutput    = document.getElementById("ask-output");
+const citationsEl  = document.getElementById("citations-block");
+
+let askAbort = null;
+
+askBtn.addEventListener("click", async () => {
+  const question = questionEl.value.trim();
+  if (!question) return;
+
+  askBtn.classList.add("hidden");
+  askStopBtn.classList.remove("hidden");
+  askOutput.textContent = "";
+  askOutput.classList.remove("prose");
+  citationsEl.classList.add("hidden");
+  citationsEl.innerHTML = "";
+
+  askAbort = new AbortController();
+
+  let fullText = "";
+  try {
+    const resp = await fetch("{% url 'docs_ask_stream' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, model: modelSel?.value || null }),
+      signal: askAbort.signal,
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const d = line.slice(6);
+        if (d === "[DONE]") { reader.cancel(); break; }
+        if (d.startsWith("[CITATION]")) {
+          const citeText = d.slice(10);
+          citationsEl.innerHTML = markdownToHtml(citeText);
+          citationsEl.classList.remove("hidden");
+          continue;
+        }
+        fullText += d;
+        askOutput.textContent = fullText;
+      }
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") askOutput.textContent = `Error: ${e.message}`;
+  }
+
+  if (fullText) {
+    askOutput.innerHTML = markdownToHtml(fullText);
+    askOutput.classList.add("prose");
+  }
+
+  askBtn.classList.remove("hidden");
+  askStopBtn.classList.add("hidden");
+  askAbort = null;
+});
+
+askStopBtn.addEventListener("click", () => {
+  askAbort?.abort();
+  askBtn.classList.remove("hidden");
+  askStopBtn.classList.add("hidden");
+});
+
+questionEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askBtn.click(); }
+});
+
+function escDoc(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+{% endif %}
+</script>
+{% endblock %}
