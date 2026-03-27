@@ -71,24 +71,53 @@ class OutlookClient:
             raise OutlookDBError("OutlookClient must be used as a context manager.")
         return self._conn
 
+    def _list_tables(self) -> list[str]:
+        conn = self._require_connection()
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def _schema_error(self, exc: sqlite3.OperationalError) -> OutlookDBError:
+        try:
+            tables = self._list_tables()
+            tables_str = ", ".join(tables) if tables else "(none found)"
+        except Exception:
+            tables_str = "(could not list tables)"
+        return OutlookDBError(
+            f"Outlook database query failed: {exc}\n"
+            f"Tables present in the database: {tables_str}\n"
+            "The expected schema may not match your Outlook version. "
+            "Please report the table list above so schema.py can be updated."
+        )
+
     def list_folders(self) -> list[str]:
         conn = self._require_connection()
-        rows = conn.execute(schema.QUERY_LIST_FOLDERS).fetchall()
+        try:
+            rows = conn.execute(schema.QUERY_LIST_FOLDERS).fetchall()
+        except sqlite3.OperationalError as e:
+            raise self._schema_error(e) from e
         return [row[schema.COL_FOLDER_NAME] for row in rows if row[schema.COL_FOLDER_NAME]]
 
     def search(self, query: str, *, limit: int = 20) -> list[EmailMessage]:
         """Search messages by keyword (subject, body, sender)."""
         conn = self._require_connection()
         like_query = f"%{query}%"
-        rows = conn.execute(
-            schema.QUERY_SEARCH_MESSAGES, {"query": like_query, "limit": limit}
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                schema.QUERY_SEARCH_MESSAGES, {"query": like_query, "limit": limit}
+            ).fetchall()
+        except sqlite3.OperationalError as e:
+            raise self._schema_error(e) from e
         return [_row_to_message(row, self._config.max_body_chars) for row in rows]
 
     def recent(self, *, limit: int = 20) -> list[EmailMessage]:
         """Return the N most recent messages."""
         conn = self._require_connection()
-        rows = conn.execute(schema.QUERY_RECENT_MESSAGES, {"limit": limit}).fetchall()
+        try:
+            rows = conn.execute(schema.QUERY_RECENT_MESSAGES, {"limit": limit}).fetchall()
+        except sqlite3.OperationalError as e:
+            raise self._schema_error(e) from e
         return [_row_to_message(row, self._config.max_body_chars) for row in rows]
 
 
