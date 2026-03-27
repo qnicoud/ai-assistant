@@ -37,8 +37,8 @@
     </button>
   </div>
 
-  {% if documents %}
-  <table class="data-table" id="docs-table">
+  <p id="docs-empty" class="text-muted text-sm"{% if documents %} style="display:none"{% endif %}>No documents ingested yet.</p>
+  <table class="data-table" id="docs-table"{% if not documents %} style="display:none"{% endif %}>
     <thead>
       <tr>
         <th>File</th>
@@ -60,9 +60,6 @@
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <p id="docs-empty" class="text-muted text-sm">No documents ingested yet.</p>
-  {% endif %}
 </div>
 
 <!-- Ask panel -->
@@ -149,20 +146,20 @@ function pollIngestStatus(token) {
 }
 
 // ── Document table ───────────────────────────────────────────────────────────
+const docsTable = document.getElementById("docs-table");
 const docsBody  = document.getElementById("docs-body");
 const docsEmpty = document.getElementById("docs-empty");
 const clearBtn  = document.getElementById("clear-btn");
 
 function refreshDocTable(documents) {
-  if (!docsBody) return;
-
   if (!documents.length) {
     docsBody.innerHTML = "";
-    if (docsEmpty) docsEmpty.style.display = "";
+    docsTable.style.display = "none";
+    docsEmpty.style.display = "";
     return;
   }
-  if (docsEmpty) docsEmpty.style.display = "none";
-
+  docsEmpty.style.display = "none";
+  docsTable.style.display = "";
   docsBody.innerHTML = documents.map(doc => `
     <tr data-path="${escDoc(doc.path)}">
       <td>${escDoc(doc.filename)}</td>
@@ -240,13 +237,18 @@ askBtn.addEventListener("click", async () => {
       const lines = buffer.split("\n"); buffer = lines.pop();
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
-        const d = line.slice(6);
-        if (d === "[DONE]") { reader.cancel(); break; }
-        if (d.startsWith("[CITATION]")) {
-          const citeText = d.slice(10);
-          citationsEl.innerHTML = markdownToHtml(citeText);
+        const raw = line.slice(6);
+        if (raw === "[DONE]") { reader.cancel(); break; }
+        let d;
+        try { d = JSON.parse(raw); } catch { d = raw; }
+        if (typeof d === "string" && d.startsWith("[CITATION]")) {
+          citationsEl.innerHTML = markdownToHtml(d.slice(10));
           citationsEl.classList.remove("hidden");
           continue;
+        }
+        if (typeof d === "string" && d.startsWith("[ERROR]")) {
+          askOutput.textContent = d;
+          break;
         }
         fullText += d;
         askOutput.textContent = fullText;

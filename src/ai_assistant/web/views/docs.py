@@ -178,13 +178,13 @@ def docs_ask_stream(request: HttpRequest) -> StreamingHttpResponse:
         try:
             token_iter, results = rag.ask_stream(question, model=model)
             for token in token_iter:
-                yield f"data: {token}\n\n"
+                yield f"data: {json.dumps(token)}\n\n"
 
             if results:
                 citations = format_citations(results)
-                yield f"data: [CITATION]{citations}\n\n"
+                yield f"data: {json.dumps('[CITATION]' + citations)}\n\n"
         except Exception as e:
-            yield f"data: [ERROR] {e}\n\n"
+            yield f"data: {json.dumps('[ERROR] ' + str(e))}\n\n"
 
         yield "data: [DONE]\n\n"
 
