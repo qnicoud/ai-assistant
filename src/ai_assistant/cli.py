@@ -450,31 +450,6 @@ def docs_sharepoint_ls(ctx: click.Context, folder: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# tui
-# ---------------------------------------------------------------------------
-
-
-@main.command()
-@click.option("--model", "-m", default=None, help="Override the default model.")
-@click.pass_context
-def tui(ctx: click.Context, model: str | None) -> None:
-    """Launch the Textual terminal UI."""
-    try:
-        from ai_assistant.tui.app import AiAssistantApp
-    except ImportError:
-        console.print(
-            "[bold red]Error:[/] TUI dependencies not installed.\n"
-            "Run: uv pip install 'ai-assistant[tui]'",
-            err=True,
-        )
-        sys.exit(1)
-
-    config: Config = ctx.obj["config"]
-    app = AiAssistantApp(config=config, model=model)
-    app.run()
-
-
-# ---------------------------------------------------------------------------
 # web
 # ---------------------------------------------------------------------------
 

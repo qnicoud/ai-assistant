@@ -13,9 +13,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tui = [
-    "textual>=3.0",
-]
 mlx = [
     "mlx-lm>=0.18",
 ]
