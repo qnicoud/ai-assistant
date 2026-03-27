@@ -34,7 +34,13 @@ def main(ctx: click.Context, config_path: Path | None) -> None:
 
 @main.command()
 @click.option("--model", "-m", default=None, help="Override the default model.")
-@click.option("--docs", "use_docs", is_flag=True, default=False, help="Enable RAG mode using ingested documents.")
+@click.option(
+    "--docs",
+    "use_docs",
+    is_flag=True,
+    default=False,
+    help="Enable RAG mode using ingested documents.",
+)
 @click.pass_context
 def chat(ctx: click.Context, model: str | None, use_docs: bool) -> None:
     """Start an interactive multi-turn chat session."""
@@ -46,8 +52,11 @@ def chat(ctx: click.Context, model: str | None, use_docs: bool) -> None:
         try:
             from ai_assistant.docs.rag import RagPipeline
             from ai_assistant.docs.store import DocStore
+
             _store = DocStore(config.docs.db_path).__enter__()
-            rag = RagPipeline(store=_store, backend=OllamaBackend(config.ollama), config=config.docs)
+            rag = RagPipeline(
+                store=_store, backend=OllamaBackend(config.ollama), config=config.docs
+            )
         except ImportError:
             console.print(
                 "[bold red]Error:[/] Docs dependencies not installed.\n"
@@ -110,9 +119,7 @@ def ask(ctx: click.Context, question: str, model: str | None, stream: bool) -> N
     show_default=True,
 )
 @click.pass_context
-def review(
-    ctx: click.Context, file: Path | None, model: str | None, focus: str
-) -> None:
+def review(ctx: click.Context, file: Path | None, model: str | None, focus: str) -> None:
     """Review code from a file (or stdin if no file given)."""
     from ai_assistant.assistant.code_review import run_review
 
@@ -195,9 +202,7 @@ def email(ctx: click.Context) -> None:
     show_default=True,
 )
 @click.pass_context
-def email_search(
-    ctx: click.Context, query: str, limit: int, output_format: str
-) -> None:
+def email_search(ctx: click.Context, query: str, limit: int, output_format: str) -> None:
     """Search emails by keyword (subject, body, sender)."""
     from ai_assistant.email.search import run_search
 
@@ -214,9 +219,7 @@ def email_search(
 @click.option("--query", "-q", default=None, help="Filter emails by search query first.")
 @click.option("--model", "-m", default=None, help="Override the summary model.")
 @click.pass_context
-def email_summarize(
-    ctx: click.Context, last: int, query: str | None, model: str | None
-) -> None:
+def email_summarize(ctx: click.Context, last: int, query: str | None, model: str | None) -> None:
     """Summarize recent emails into key topics and action items."""
     from ai_assistant.email.summarizer import run_summarize
 
@@ -254,6 +257,7 @@ def _make_rag(config: Config, backend: OllamaBackend):  # type: ignore[return]
     try:
         from ai_assistant.docs.rag import RagPipeline
         from ai_assistant.docs.store import DocStore
+
         return DocStore(config.docs.db_path), RagPipeline
     except ImportError:
         console.print(
@@ -283,15 +287,14 @@ def docs_ingest(ctx: click.Context, path: Path, model: str | None) -> None:
     cfg = config.docs
     if model:
         from dataclasses import replace
+
         cfg = replace(cfg, embedding_model=model)
 
     with _make_backend(config) as backend:
         with DocStore(cfg.db_path) as store:
             pipeline = RagPipeline(store=store, backend=backend, config=cfg)
             ingested, skipped = pipeline.ingest_path(path)
-            console.print(
-                f"\n[bold green]Done.[/] {ingested} file(s) ingested, {skipped} skipped."
-            )
+            console.print(f"\n[bold green]Done.[/] {ingested} file(s) ingested, {skipped} skipped.")
 
 
 @docs.command("ask")
@@ -299,9 +302,7 @@ def docs_ingest(ctx: click.Context, path: Path, model: str | None) -> None:
 @click.option("--model", "-m", default=None, help="Override the generation model.")
 @click.option("--no-citations", is_flag=True, default=False, help="Suppress source citations.")
 @click.pass_context
-def docs_ask(
-    ctx: click.Context, question: str, model: str | None, no_citations: bool
-) -> None:
+def docs_ask(ctx: click.Context, question: str, model: str | None, no_citations: bool) -> None:
     """Ask a question and get an answer sourced from ingested documents."""
     from ai_assistant.docs.prompts import format_citations
     from ai_assistant.docs.rag import RagPipeline
@@ -327,6 +328,7 @@ def docs_ask(
 def docs_list(ctx: click.Context) -> None:
     """List all ingested documents."""
     from rich.table import Table
+
     from ai_assistant.docs.store import DocStore
 
     config: Config = ctx.obj["config"]
@@ -397,14 +399,16 @@ def docs_ingest_sharepoint(ctx: click.Context, folder: str, model: str | None) -
             err=True,
         )
         sys.exit(1)
+    import tempfile
+
     from ai_assistant.docs.rag import RagPipeline
     from ai_assistant.docs.store import DocStore
-    import tempfile
 
     config: Config = ctx.obj["config"]
     cfg = config.docs
     if model:
         from dataclasses import replace
+
         cfg = replace(cfg, embedding_model=model)
 
     connector = SharePointConnector(config.docs)
@@ -485,16 +489,18 @@ def web(ctx: click.Context, host: str, port: int) -> None:
         import django  # noqa: F401
     except ImportError:
         console.print(
-            "[bold red]Error:[/] Django not installed.\n"
-            "Run: uv pip install 'ai-assistant[web]'",
+            "[bold red]Error:[/] Django not installed.\nRun: uv pip install 'ai-assistant[web]'",
             err=True,
         )
         sys.exit(1)
 
     import os
+
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ai_assistant.web.settings")
+    django.setup()
 
     from django.core.management import call_command
+
     console.print(
         f"[bold cyan]AI Assistant Web[/] starting at [bold]http://{host}:{port}[/]\n"
         "Press [bold]Ctrl+C[/] to stop."

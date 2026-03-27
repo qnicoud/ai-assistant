@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import struct
 import sqlite3
+import struct
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -25,6 +25,7 @@ class DocStoreError(Exception):
 def _load_sqlite_vec(conn: sqlite3.Connection) -> None:
     try:
         import sqlite_vec  # type: ignore[import-untyped]
+
         sqlite_vec.load(conn)
     except ImportError:
         raise ImportError("sqlite-vec is required: uv pip install 'ai-assistant[docs]'")
@@ -53,13 +54,15 @@ class DocStore:
             raise DocStoreError("DocStore must be used as a context manager.")
         return self._conn
 
-    def __enter__(self) -> "DocStore":
+    def __enter__(self) -> DocStore:
         path = Path(self._db_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
         conn = sqlite3.connect(str(path))
+        conn.enable_load_extension(True)
         conn.row_factory = sqlite3.Row
         _load_sqlite_vec(conn)
+        conn.enable_load_extension(False)
         self._conn = conn
         self._init_schema()
         return self
@@ -92,8 +95,7 @@ class DocStore:
         # We detect embedding dimension from first insert; default nomic-embed-text = 768.
         try:
             conn.execute(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks "
-                "USING vec0(embedding float[768])"
+                "CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[768])"
             )
         except sqlite3.OperationalError as e:
             raise DocStoreError(f"Failed to create vec virtual table: {e}") from e
@@ -105,9 +107,7 @@ class DocStore:
 
     def is_ingested(self, path: str) -> bool:
         conn = self._require_connection()
-        row = conn.execute(
-            "SELECT id FROM documents WHERE path = ?", (path,)
-        ).fetchone()
+        row = conn.execute("SELECT id FROM documents WHERE path = ?", (path,)).fetchone()
         return row is not None
 
     def add_document(
@@ -121,7 +121,7 @@ class DocStore:
             raise ValueError("chunks and embeddings must have the same length")
 
         conn = self._require_connection()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Upsert document record
         conn.execute(
@@ -131,22 +131,16 @@ class DocStore:
             "ingested_at=excluded.ingested_at, chunk_count=excluded.chunk_count",
             (path, filename, now, len(chunks)),
         )
-        doc_id = conn.execute(
-            "SELECT id FROM documents WHERE path = ?", (path,)
-        ).fetchone()["id"]
+        doc_id = conn.execute("SELECT id FROM documents WHERE path = ?", (path,)).fetchone()["id"]
 
         # Delete old chunks for this document (re-ingestion)
         old_chunk_ids = [
             row["id"]
-            for row in conn.execute(
-                "SELECT id FROM chunks WHERE doc_id = ?", (doc_id,)
-            ).fetchall()
+            for row in conn.execute("SELECT id FROM chunks WHERE doc_id = ?", (doc_id,)).fetchall()
         ]
         if old_chunk_ids:
             placeholders = ",".join("?" * len(old_chunk_ids))
-            conn.execute(
-                f"DELETE FROM vec_chunks WHERE rowid IN ({placeholders})", old_chunk_ids
-            )
+            conn.execute(f"DELETE FROM vec_chunks WHERE rowid IN ({placeholders})", old_chunk_ids)
             conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
 
         # Insert chunks and their vec entries
@@ -166,9 +160,7 @@ class DocStore:
     def delete_document(self, path: str) -> bool:
         """Remove a document and all its chunks. Returns True if it existed."""
         conn = self._require_connection()
-        doc = conn.execute(
-            "SELECT id FROM documents WHERE path = ?", (path,)
-        ).fetchone()
+        doc = conn.execute("SELECT id FROM documents WHERE path = ?", (path,)).fetchone()
         if not doc:
             return False
 
@@ -180,27 +172,21 @@ class DocStore:
         ]
         if chunk_ids:
             placeholders = ",".join("?" * len(chunk_ids))
-            conn.execute(
-                f"DELETE FROM vec_chunks WHERE rowid IN ({placeholders})", chunk_ids
-            )
+            conn.execute(f"DELETE FROM vec_chunks WHERE rowid IN ({placeholders})", chunk_ids)
         conn.execute("DELETE FROM documents WHERE id = ?", (doc["id"],))
         conn.commit()
         return True
 
     def clear(self) -> None:
         conn = self._require_connection()
-        conn.executescript(
-            "DELETE FROM vec_chunks; DELETE FROM chunks; DELETE FROM documents;"
-        )
+        conn.executescript("DELETE FROM vec_chunks; DELETE FROM chunks; DELETE FROM documents;")
         conn.commit()
 
     # ------------------------------------------------------------------
     # Read operations
     # ------------------------------------------------------------------
 
-    def search(
-        self, query_embedding: list[float], *, top_k: int = 5
-    ) -> list[SearchResult]:
+    def search(self, query_embedding: list[float], *, top_k: int = 5) -> list[SearchResult]:
         """Return the top_k most similar chunks to query_embedding."""
         conn = self._require_connection()
         blob = _pack_embedding(query_embedding)
