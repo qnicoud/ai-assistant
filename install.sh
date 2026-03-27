@@ -85,6 +85,64 @@ done
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+# Find a locally installed Python >= 3.13 (fallback when uv download is blocked).
+find_local_python() {
+  # 1. Explicit override via env var
+  if [[ -n "${PYTHON_BIN:-}" ]]; then
+    echo "${PYTHON_BIN}"; return 0
+  fi
+
+  # 2. Active conda environment
+  if [[ -n "${CONDA_PREFIX:-}" ]]; then
+    local p="${CONDA_PREFIX}/bin/python"
+    if [[ -x "${p}" ]] && "${p}" -c "import sys; exit(0 if sys.version_info>=(3,13) else 1)" 2>/dev/null; then
+      echo "${p}"; return 0
+    fi
+  fi
+
+  # 3. Common interpreter names on PATH
+  for candidate in python3.13 python3 python; do
+    if command -v "${candidate}" &>/dev/null; then
+      local p; p="$(command -v "${candidate}")"
+      if "${p}" -c "import sys; exit(0 if sys.version_info>=(3,13) else 1)" 2>/dev/null; then
+        echo "${p}"; return 0
+      fi
+    fi
+  done
+
+  # 4. pyenv
+  if command -v pyenv &>/dev/null; then
+    local p; p="$(pyenv root)/versions/3.13/bin/python3"
+    if [[ -x "${p}" ]]; then echo "${p}"; return 0; fi
+  fi
+
+  return 1
+}
+
+# Create a venv: try uv's managed Python download first, fall back to local Python.
+make_venv() {
+  local venv_dir="$1"
+
+  info "Creating venv at ${venv_dir} (trying uv-managed Python ${PYTHON_VERSION})…"
+  if uv venv "${venv_dir}" --python "${PYTHON_VERSION}" 2>/dev/null; then
+    success "venv created (uv-managed Python)"
+    return 0
+  fi
+
+  warn "uv could not download Python ${PYTHON_VERSION} (network/proxy issue). Trying local Python…"
+  local local_py
+  if local_py="$(find_local_python)"; then
+    info "Using local Python: ${local_py}"
+    uv venv "${venv_dir}" --python "${local_py}"
+    success "venv created (local Python: ${local_py})"
+  else
+    error "No local Python >= 3.13 found and uv download failed."
+    error "Install Python 3.13 via conda, pyenv, or https://python.org, then re-run."
+    error "Or set PYTHON_BIN=/path/to/python3.13 before running this script."
+    exit 1
+  fi
+}
+
 detect_os() {
   case "$(uname -s)" in
     Darwin) echo "macos" ;;
@@ -266,9 +324,7 @@ install_dev() {
   require_in_repo
   ensure_uv
 
-  info "Creating .venv with Python ${PYTHON_VERSION}…"
-  uv venv "${REPO_DIR}/.venv" --python "${PYTHON_VERSION}"
-  success ".venv created"
+  make_venv "${REPO_DIR}/.venv"
 
   info "Installing package in editable mode with extras: ${EXTRAS}…"
   uv pip install --python "${REPO_DIR}/.venv/bin/python" -e "${REPO_DIR}[${EXTRAS}]"
@@ -303,8 +359,7 @@ install_novice() {
 
   info "Creating isolated environment at ${INSTALL_DIR}…"
   mkdir -p "${INSTALL_DIR}"
-  uv venv "${INSTALL_DIR}/.venv" --python "${PYTHON_VERSION}"
-  success "Virtual environment ready"
+  make_venv "${INSTALL_DIR}/.venv"
 
   info "Installing package with extras: ${EXTRAS}…"
   uv pip install --python "${INSTALL_DIR}/.venv/bin/python" "${REPO_DIR}[${EXTRAS}]"
