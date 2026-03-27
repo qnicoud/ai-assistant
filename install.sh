@@ -85,6 +85,9 @@ done
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+# Wrapper: always pass --native-tls so corporate proxies with custom CA certs work.
+uv_pip() { uv pip --native-tls "$@"; }
+
 # Find a locally installed Python >= 3.13 (fallback when uv download is blocked).
 find_local_python() {
   # 1. Explicit override via env var
@@ -327,11 +330,11 @@ install_dev() {
   make_venv "${REPO_DIR}/.venv"
 
   info "Installing package in editable mode with extras: ${EXTRAS}…"
-  uv pip install --python "${REPO_DIR}/.venv/bin/python" -e "${REPO_DIR}[${EXTRAS}]"
+  uv_pip install --python "${REPO_DIR}/.venv/bin/python" -e "${REPO_DIR}[${EXTRAS}]"
   success "Package installed"
 
   info "Installing dev dependencies…"
-  uv pip install --python "${REPO_DIR}/.venv/bin/python" \
+  uv_pip install --python "${REPO_DIR}/.venv/bin/python" \
     "pytest>=8.0" "pytest-cov>=5.0" "black>=24.0" "ruff>=0.5" "mypy>=1.10" "pytest-httpx>=0.30"
   success "Dev dependencies installed"
 
@@ -362,7 +365,7 @@ install_novice() {
   make_venv "${INSTALL_DIR}/.venv"
 
   info "Installing package with extras: ${EXTRAS}…"
-  uv pip install --python "${INSTALL_DIR}/.venv/bin/python" "${REPO_DIR}[${EXTRAS}]"
+  uv_pip install --python "${INSTALL_DIR}/.venv/bin/python" "${REPO_DIR}[${EXTRAS}]"
   success "Package installed"
 
   info "Creating launcher at ${BIN_DIR}/ai-assist…"
