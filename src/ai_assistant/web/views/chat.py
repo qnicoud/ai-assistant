@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from ai_assistant.assistant.prompts import DEFAULT_PROMPTS
+from ai_assistant.assistant.prompts import build_chat_system_prompt
 from ai_assistant.web import services
 
 
@@ -45,7 +45,7 @@ def chat_stream(request: HttpRequest) -> StreamingHttpResponse:
 
     def generate():
         backend = services.get_backend()
-        system = DEFAULT_PROMPTS.chat
+        system = build_chat_system_prompt(context_mode)
 
         # Build messages
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]

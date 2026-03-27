@@ -13,12 +13,44 @@ class Prompts:
     email_summary: str
 
 
-DEFAULT_PROMPTS = Prompts(
-    chat=(
-        "You are a helpful AI assistant for software development. "
-        "Answer questions clearly and concisely. "
-        "Format code examples in markdown fenced code blocks with the language specified."
+_CHAT_BASE = (
+    "You are a helpful AI assistant for software development. "
+    "Answer questions clearly and concisely. "
+    "Format code examples in markdown fenced code blocks with the language specified."
+)
+
+_CONTEXT_INSTRUCTIONS: dict[str, str] = {
+    "docs": (
+        "You have been given relevant excerpts from the user's documents as additional context. "
+        "Prioritise information found in those excerpts when answering. "
+        "If the excerpts contain a direct answer, cite the source filename. "
+        "If they do not contain enough information, say so and fall back to your general knowledge."
     ),
+    "email": (
+        "You have been given relevant emails from the user's mailbox as additional context. "
+        "Prioritise information found in those emails when answering. "
+        "Reference the sender and subject when citing an email. "
+        "If the emails do not contain enough information, say so and fall back to your general knowledge."
+    ),
+    "both": (
+        "You have been given relevant document excerpts and emails as additional context. "
+        "Prioritise information found in that context when answering. "
+        "Cite the source (filename or sender/subject) when referencing provided material. "
+        "If the context does not contain enough information, say so and fall back to your general knowledge."
+    ),
+}
+
+
+def build_chat_system_prompt(context_mode: str = "none") -> str:
+    """Return the system prompt for the chat endpoint, extended for context modes."""
+    extra = _CONTEXT_INSTRUCTIONS.get(context_mode, "")
+    if extra:
+        return f"{_CHAT_BASE}\n\n{extra}"
+    return _CHAT_BASE
+
+
+DEFAULT_PROMPTS = Prompts(
+    chat=_CHAT_BASE,
     code_review=(
         "You are an expert code reviewer. Analyze the provided code and give structured feedback.\n"
         "Organize your review into these sections:\n"
