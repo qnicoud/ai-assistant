@@ -160,6 +160,52 @@ body {
   border-top: 1px solid var(--glass-border);
 }
 
+/* ── Sidebar collapse button ──────────────────────────────── */
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.sidebar-collapse-btn:hover { background: var(--glass-bg-hover); color: var(--text-primary); }
+
+/* ── Collapsed sidebar ────────────────────────────────────── */
+.sidebar.collapsed {
+  width: 64px;
+  padding: 24px 8px;
+}
+.sidebar.collapsed .sidebar-logo-text,
+.sidebar.collapsed .nav-link span:not(.icon),
+.sidebar.collapsed #theme-label {
+  display: none;
+}
+.sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 4px 0 20px;
+  gap: 0;
+}
+.sidebar.collapsed .sidebar-collapse-btn {
+  margin: 0;
+}
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 10px 0;
+}
+.sidebar.collapsed .theme-toggle {
+  justify-content: center;
+  padding: 8px 0;
+}
+
 /* ── Theme toggle ─────────────────────────────────────────── */
 .theme-toggle {
   display: flex;
@@ -221,6 +267,8 @@ body {
 }
 
 /* ── Glass card ───────────────────────────────────────────── */
+.glass-card + .glass-card { margin-top: 1.25rem; }
+
 .glass-card {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -417,6 +465,23 @@ select {
   height: calc(100vh - 96px);
 }
 
+/* Chat page: full-viewport, no page scroll */
+.page-chat {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+.page-chat > .page-title,
+.page-chat > .toolbar { flex-shrink: 0; }
+.page-chat .chat-layout {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.page-chat .chat-messages { min-height: 0; }
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -450,6 +515,36 @@ select {
   white-space: pre-wrap;
   font-family: inherit;
 }
+
+/* Markdown-rendered assistant messages */
+.message.assistant.prose {
+  white-space: normal;
+}
+.message.assistant.prose p { margin: 6px 0; }
+.message.assistant.prose ul,
+.message.assistant.prose ol { padding-left: 18px; margin: 6px 0; }
+.message.assistant.prose pre {
+  background: var(--code-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.message.assistant.prose pre code { background: none; padding: 0; font-size: 13px; }
+.message.assistant.prose code {
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+.message.assistant.prose h1,
+.message.assistant.prose h2,
+.message.assistant.prose h3,
+.message.assistant.prose h4 { margin: 10px 0 4px; font-weight: 700; }
+.message.assistant.prose strong { font-weight: 700; }
+.message.assistant.prose em { font-style: italic; }
 
 .message-meta {
   font-size: 11px;

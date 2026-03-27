@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Chat — AI Assistant{% endblock %}
+{% block main_class %}page-chat{% endblock %}
 {% block content %}
 <div class="page-title">Chat</div>
 
@@ -112,6 +113,13 @@ async function sendMessage() {
   } catch (e) {
     if (e.name !== "AbortError") aiDiv.textContent = `Error: ${e.message}`;
   }
+
+  // Render markdown once streaming is complete
+  if (fullText) {
+    aiDiv.innerHTML = markdownToHtml(fullText);
+    aiDiv.classList.add("prose");
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 
   // Update history
   history.push({ role: "user", content: text });

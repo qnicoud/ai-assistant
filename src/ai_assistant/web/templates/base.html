@@ -13,7 +13,9 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">
-      <span>✦</span> AI Assistant
+      <span>✦</span>
+      <span class="sidebar-logo-text">AI Assistant</span>
+      <button class="sidebar-collapse-btn" id="sidebar-toggle" title="Toggle sidebar">‹</button>
     </div>
 
     <a href="{% url 'chat' %}"     class="nav-link {% if active == 'chat' %}active{% endif %}">
@@ -44,7 +46,7 @@
   </nav>
 
   <!-- Main -->
-  <main class="main-content">
+  <main class="main-content {% block main_class %}{% endblock %}">
     {% if messages %}
       {% for message in messages %}
         <div class="flash {{ message.tags }}">{{ message }}</div>
@@ -54,5 +56,26 @@
   </main>
 
 </div>
+<script>
+(function () {
+  const sidebar = document.querySelector(".sidebar");
+  const btn     = document.getElementById("sidebar-toggle");
+  const STORAGE_KEY = "ai-sidebar-collapsed";
+
+  function applyCollapsed(collapsed) {
+    sidebar.classList.toggle("collapsed", collapsed);
+    btn.textContent = collapsed ? "›" : "‹";
+    btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  }
+
+  applyCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+
+  btn.addEventListener("click", () => {
+    const nowCollapsed = !sidebar.classList.contains("collapsed");
+    localStorage.setItem(STORAGE_KEY, nowCollapsed ? "1" : "0");
+    applyCollapsed(nowCollapsed);
+  });
+})();
+</script>
 </body>
 </html>
