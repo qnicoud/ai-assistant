@@ -67,10 +67,11 @@ def chat_stream(request: HttpRequest) -> StreamingHttpResponse:
 
         try:
             for token in backend.chat_stream(messages, model=model):
-                # SSE format: each token on its own data line
-                yield f"data: {token}\n\n"
+                # JSON-encode the token so newlines and special chars don't
+                # break SSE framing (SSE uses \n\n as message separator).
+                yield f"data: {json.dumps(token)}\n\n"
         except Exception as e:
-            yield f"data: [ERROR] {e}\n\n"
+            yield f"data: [ERROR] {json.dumps(str(e))}\n\n"
 
         yield "data: [DONE]\n\n"
 
