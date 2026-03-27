@@ -208,7 +208,7 @@ check_path() {
 
     printf "\n  Add it now by appending to %s? [Y/n] " "${shell_rc}"
     read -r answer </dev/tty
-    if [[ "${answer,,}" != "n" ]]; then
+    if [[ "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" != "n" ]]; then
       echo "" >> "${shell_rc}"
       echo "# Added by ai-assistant installer" >> "${shell_rc}"
       echo "export PATH=\"${dir}:\${PATH}\"" >> "${shell_rc}"
@@ -283,7 +283,7 @@ check_ollama() {
       if command -v brew &>/dev/null; then
         printf "\n  Install Ollama via Homebrew? [Y/n] "
         read -r answer </dev/tty
-        if [[ "${answer,,}" != "n" ]]; then
+        if [[ "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" != "n" ]]; then
           brew install ollama
           success "Ollama installed via Homebrew"
         fi
@@ -294,7 +294,7 @@ check_ollama() {
     elif [[ "${OS}" == "linux" ]]; then
       printf "\n  Install Ollama via official script? [Y/n] "
       read -r answer </dev/tty
-      if [[ "${answer,,}" != "n" ]]; then
+      if [[ "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" != "n" ]]; then
         curl -fsSL https://ollama.com/install.sh | sh
         success "Ollama installed"
       else
@@ -329,7 +329,7 @@ check_ollama() {
     printf "\n  Models are sourced from Hugging Face (proxy-friendly).\n"
     printf "  Pull recommended models now? [Y/n] "
     read -r answer </dev/tty
-    if [[ "${answer,,}" != "n" ]]; then
+    if [[ "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" != "n" ]]; then
       if [[ "${tier}" == "8GB" ]]; then
         pull_models MODELS_8GB
       else
