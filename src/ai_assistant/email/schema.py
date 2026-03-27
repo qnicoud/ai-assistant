@@ -30,27 +30,26 @@ TABLE_RECIPIENTS = "Recipient"
 TABLE_ADDRESSES = "Address"
 
 # ---------------------------------------------------------------------------
-# Message table columns
+# Mail table columns (observed on Outlook for Mac 16.x, new Outlook schema)
 # ---------------------------------------------------------------------------
 
-COL_MSG_ID = "MessageID"
-COL_MSG_SUBJECT = "Subject"
-COL_MSG_BODY = "Body"           # Plain-text body (may be None if HTML only)
-COL_MSG_BODY_HTML = "BodyHTML"  # HTML body
-COL_MSG_DATE = "ReceivedDate"
-COL_MSG_FOLDER_ID = "FolderID"
-COL_MSG_SENDER_NAME = "SenderName"
-COL_MSG_SENDER_EMAIL = "SenderEmailAddress"
-COL_MSG_IS_READ = "IsRead"
-COL_MSG_THREAD_ID = "ConversationID"
+COL_MSG_ID            = "Record_RecordID"
+COL_MSG_SUBJECT       = "Message_NormalizedSubject"
+COL_MSG_BODY          = "Message_Preview"       # Text preview; full body is in an external file
+COL_MSG_DATE          = "Message_TimeReceived"
+COL_MSG_FOLDER_ID     = "Record_FolderID"
+COL_MSG_SENDER_NAME   = "Message_SenderList"    # May be a serialised value
+COL_MSG_SENDER_EMAIL  = "Message_SenderAddressList"
+COL_MSG_IS_READ       = "Message_ReadFlag"
+COL_MSG_THREAD_ID     = "Conversation_ConversationID"
 
 # ---------------------------------------------------------------------------
-# Folder table columns
+# Folders table columns
 # ---------------------------------------------------------------------------
 
-COL_FOLDER_ID = "FolderID"
-COL_FOLDER_NAME = "FolderName"
-COL_FOLDER_PARENT_ID = "ParentFolderID"
+COL_FOLDER_ID         = "Record_RecordID"
+COL_FOLDER_NAME       = "Folder_Name"
+COL_FOLDER_PARENT_ID  = "Folder_ParentID"
 
 # ---------------------------------------------------------------------------
 # Queries
@@ -71,7 +70,6 @@ QUERY_SEARCH_MESSAGES = f"""
         m.{COL_MSG_DATE},
         m.{COL_MSG_IS_READ},
         m.{COL_MSG_BODY},
-        m.{COL_MSG_BODY_HTML},
         m.{COL_MSG_THREAD_ID},
         f.{COL_FOLDER_NAME}
     FROM {TABLE_MESSAGES} m
@@ -95,7 +93,6 @@ QUERY_RECENT_MESSAGES = f"""
         m.{COL_MSG_DATE},
         m.{COL_MSG_IS_READ},
         m.{COL_MSG_BODY},
-        m.{COL_MSG_BODY_HTML},
         m.{COL_MSG_THREAD_ID},
         f.{COL_FOLDER_NAME}
     FROM {TABLE_MESSAGES} m

@@ -142,8 +142,7 @@ class OutlookClient:
 
 def _row_to_message(row: sqlite3.Row, max_body_chars: int) -> EmailMessage:
     plain = row[schema.COL_MSG_BODY]
-    html = row[schema.COL_MSG_BODY_HTML]
-    body = _extract_text(plain, html, max_body_chars)
+    body = _extract_text(plain, None, max_body_chars)
 
     return EmailMessage(
         message_id=str(row[schema.COL_MSG_ID] or ""),
