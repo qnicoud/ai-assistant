@@ -11,12 +11,19 @@
     {% if not models %}<option value="">No models found</option>{% endif %}
   </select>
 
-  {% if rag_available %}
-  <label class="inline-toggle" title="Use ingested documents as context">
-    <input type="checkbox" id="rag-toggle">
-    <span class="switch"></span>
-    Docs mode
-  </label>
+  {% if rag_available or email_available %}
+  <div class="context-selector">
+    <label class="ctx-opt"><input type="radio" name="ctx-mode" value="none" checked> None</label>
+    {% if rag_available %}
+    <label class="ctx-opt"><input type="radio" name="ctx-mode" value="docs"> 📚 Docs</label>
+    {% endif %}
+    {% if email_available %}
+    <label class="ctx-opt"><input type="radio" name="ctx-mode" value="email"> ✉ Email</label>
+    {% endif %}
+    {% if rag_available and email_available %}
+    <label class="ctx-opt"><input type="radio" name="ctx-mode" value="both"> 📚+✉ Both</label>
+    {% endif %}
+  </div>
   {% endif %}
 
   <button class="btn btn-ghost btn-sm" id="clear-btn">🗑 Clear</button>
@@ -39,7 +46,11 @@ const inputEl    = document.getElementById("chat-input");
 const sendBtn    = document.getElementById("send-btn");
 const clearBtn   = document.getElementById("clear-btn");
 const modelSel   = document.getElementById("model-select");
-const ragToggle  = document.getElementById("rag-toggle");
+
+function getContextMode() {
+  const checked = document.querySelector("input[name='ctx-mode']:checked");
+  return checked ? checked.value : "none";
+}
 
 let history = [];   // [{role, content}, ...]
 let abortCtrl = null;
@@ -71,7 +82,7 @@ async function sendMessage() {
   const payload = {
     message: text,
     model: modelSel?.value || null,
-    rag_enabled: ragToggle?.checked || false,
+    context_mode: getContextMode(),
     history: history,
   };
 

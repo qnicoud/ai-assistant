@@ -15,11 +15,11 @@ from ai_assistant.web import services
 
 def chat_page(request: HttpRequest) -> HttpResponse:
     models = services.list_chat_models()
-    rag_available = services._rag is not None
     return render(request, "chat.html", {
         "active": "chat",
         "models": models,
-        "rag_available": rag_available,
+        "rag_available": services._rag is not None,
+        "email_available": services.email_available(),
     })
 
 
@@ -34,11 +34,14 @@ def chat_stream(request: HttpRequest) -> StreamingHttpResponse:
 
     message: str = data.get("message", "").strip()
     model: str | None = data.get("model") or None
-    rag_enabled: bool = data.get("rag_enabled", False)
+    context_mode: str = data.get("context_mode", "none")
     history: list[dict] = data.get("history", [])
 
     if not message:
         return HttpResponse("Empty message", status=400)
+
+    use_docs = context_mode in ("docs", "both")
+    use_email = context_mode in ("email", "both")
 
     def generate():
         backend = services.get_backend()
@@ -47,8 +50,8 @@ def chat_stream(request: HttpRequest) -> StreamingHttpResponse:
         # Build messages
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]
 
-        # Inject RAG context if enabled
-        if rag_enabled:
+        # Inject document RAG context
+        if use_docs:
             try:
                 rag = services.get_rag()
                 results = rag.get_context(message)
@@ -57,7 +60,16 @@ def chat_stream(request: HttpRequest) -> StreamingHttpResponse:
                     ctx_block = format_context(results, max_chars=services.get_config().docs.max_context_chars)
                     messages.append({"role": "system", "content": ctx_block})
             except Exception:
-                pass  # RAG unavailable — proceed without context
+                pass
+
+        # Inject email context
+        if use_email:
+            try:
+                email_ctx = services.get_email_context(message)
+                if email_ctx:
+                    messages.append({"role": "system", "content": email_ctx})
+            except Exception:
+                pass
 
         messages += history
         messages.append({"role": "user", "content": message})

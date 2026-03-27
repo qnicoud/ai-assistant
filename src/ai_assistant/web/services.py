@@ -131,6 +131,38 @@ def get_rag() -> "RagPipeline":
     return _rag
 
 
+def email_available() -> bool:
+    """Return True if the Outlook database file exists and is reachable."""
+    try:
+        from pathlib import Path
+        from ai_assistant.email import schema as email_schema
+        config = get_config()
+        db = Path(config.email.outlook_db_path) / email_schema.MESSAGES_DB
+        return db.exists()
+    except Exception:
+        return False
+
+
+def get_email_context(query: str, max_emails: int = 5) -> str:
+    """Search emails matching *query* and return a formatted context block."""
+    from ai_assistant.email.client import OutlookClient
+    config = get_config()
+    try:
+        with OutlookClient(config.email) as client:
+            messages = client.search(query, limit=max_emails)
+        if not messages:
+            return ""
+        lines = ["--- Email context ---"]
+        for msg in messages:
+            lines.append(
+                f"[From: {msg.sender_name} | {msg.date} | Subject: {msg.subject}]\n{msg.body}"
+            )
+        lines.append("--- End of email context ---")
+        return "\n\n".join(lines)
+    except Exception:
+        return ""
+
+
 def store_lock() -> threading.Lock:
     return _store_lock
 

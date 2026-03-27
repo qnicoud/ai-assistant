@@ -565,6 +565,40 @@ select {
   resize: none;
 }
 
+/* ── Context mode selector (segmented radio) ──────────────── */
+.context-selector {
+  display: flex;
+  gap: 3px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.ctx-opt {
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ctx-opt input[type="radio"] { display: none; }
+
+.ctx-opt:has(input:checked) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ctx-opt:not(:has(input:checked)):hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
 /* ── Toggle switch (RAG / inline) ─────────────────────────── */
 .inline-toggle {
   display: flex;
