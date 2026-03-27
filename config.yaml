@@ -1,66 +1,19 @@
-ollama:
-  url: "http://127.0.0.1:11434"
-
-  # Default model for chat, code review, and code generation.
-  #
-  # Models are pulled from Hugging Face via Ollama (proxy-friendly):
-  #   ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M   # 16 GB RAM
-  #   ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q3_K_M   #  8 GB RAM
-  #
-  # After pulling, a short alias is created automatically by install.sh:
-  #   default_model: "qwen2.5-coder-7b-instruct"
-  #
-  # Alternatively, use the full Hugging Face path directly:
-  #   default_model: "hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M"
-  default_model: "qwen2.5-coder-7b-instruct"
-
-  temperature: 0.7
-  max_tokens: 4096
-
-email:
-  # Path to the Outlook for Mac "Data" directory.
-  # Default: ~/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Main Profile/Data
-  # Uncomment and override if your profile is in a different location:
-  # outlook_db_path: "/Users/yourname/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles/Main Profile/Data"
-
-  # Model used for email summarization.
-  # A general-purpose instruction model works best here.
-  #
-  # Pull from Hugging Face:
-  #   ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M   # 16 GB RAM
-  #   ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q3_K_M   #  8 GB RAM
-  summary_model: "qwen2.5-7b-instruct"
-
-  # Maximum number of emails to include in a single summarization run
-  max_emails_per_summary: 20
-
-  # Maximum characters to extract from each email body
-  max_body_chars: 2000
-
 docs:
-  # Where to store the vector database (SQLite + sqlite-vec)
-  # db_path: "~/.config/ai-assistant/docs.db"
-
-  # Text chunking settings
-  chunk_size: 512      # characters per chunk
-  chunk_overlap: 64    # overlap between consecutive chunks
-
-  # Embedding model for document RAG.
-  # Must be pulled in Ollama before using RAG features.
-  #
-  # Pull from Hugging Face (works behind corporate proxies):
-  #   ollama pull hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0
-  #
-  # The short alias "nomic-embed-text" is created automatically by install.sh.
-  embedding_model: "nomic-embed-text"
-  embed_batch_size: 20  # chunks per embedding request
-
-  # Retrieval settings
-  top_k: 5               # number of chunks retrieved per query
-  max_context_chars: 3000  # max chars injected into the LLM prompt
-
-  # SharePoint (optional — requires [graph] extras and Azure AD app registration)
-  # sharepoint_client_id: ""
-  # sharepoint_tenant_id: ""
-  # sharepoint_site_id: ""
-  # sharepoint_drive_id: ""
+  chunk_overlap: 64
+  chunk_size: 512
+  db_path: /home/quentin/.config/ai-assistant/docs.db
+  embed_batch_size: 20
+  embedding_model: nomic-embed-text
+  max_context_chars: 3000
+  top_k: 5
+email:
+  max_body_chars: 2000
+  max_emails_per_summary: 20
+  outlook_db_path: /home/quentin/Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook
+    15 Profiles/Main Profile/Data
+  summary_model: qwen2.5-7b-instruct
+ollama:
+  default_model: qwen2.5-7b-instruct
+  max_tokens: 4096
+  temperature: 0.7
+  url: http://127.0.0.1:11434
