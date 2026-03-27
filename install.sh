@@ -262,9 +262,13 @@ pull_models() {
     IFS='|' read -r name hf_path desc <<< "${entry}"
     info "Pulling ${desc}…"
     if ollama pull "${hf_path}"; then
-      # Create a short alias so config.yaml model names work out of the box
+      # Create a short alias so config.yaml model names work out of the box.
+      # ollama create requires a real file (-f -  stdin is not supported).
       if [[ "${name}" != "${hf_path}" ]]; then
-        printf "FROM ${hf_path}\n" | ollama create "${name}" -f - 2>/dev/null || true
+        local tmp; tmp=$(mktemp /tmp/Modelfile.XXXXXX)
+        echo "FROM ${hf_path}" > "${tmp}"
+        ollama create "${name}" -f "${tmp}" 2>/dev/null || true
+        rm -f "${tmp}"
       fi
       success "${name} ready"
     else

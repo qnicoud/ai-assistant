@@ -14,6 +14,18 @@ class OllamaError(Exception):
     """Raised when Ollama returns an error or is unreachable."""
 
 
+def _http_error(e: "httpx.HTTPStatusError", model: str) -> str:
+    if e.response.status_code == 404:
+        return (
+            f"Model '{model}' not found in Ollama.\n"
+            f"Pull it with:\n"
+            f"  ollama pull {model}\n"
+            f"Or list available models with:\n"
+            f"  ollama list"
+        )
+    return f"Ollama returned HTTP {e.response.status_code}: {e.response.text}"
+
+
 class OllamaBackend:
     """Model backend that calls a locally-running Ollama instance."""
 
@@ -55,7 +67,7 @@ class OllamaBackend:
             response = self._client.post("/api/generate", json=payload)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
-            raise OllamaError(f"Ollama returned HTTP {e.response.status_code}: {e.response.text}")
+            raise OllamaError(_http_error(e, payload["model"]))
 
         data = response.json()
         return str(data.get("response", ""))
@@ -84,7 +96,7 @@ class OllamaBackend:
             try:
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                raise OllamaError(f"Ollama returned HTTP {e.response.status_code}")
+                raise OllamaError(_http_error(e, payload["model"]))
             for line in response.iter_lines():
                 if not line:
                     continue
@@ -120,7 +132,7 @@ class OllamaBackend:
             response = self._client.post("/api/chat", json=payload)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
-            raise OllamaError(f"Ollama returned HTTP {e.response.status_code}: {e.response.text}")
+            raise OllamaError(_http_error(e, payload["model"]))
 
         data = response.json()
         return str(data.get("message", {}).get("content", ""))
@@ -146,7 +158,7 @@ class OllamaBackend:
             try:
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                raise OllamaError(f"Ollama returned HTTP {e.response.status_code}")
+                raise OllamaError(_http_error(e, payload["model"]))
             for line in response.iter_lines():
                 if not line:
                     continue
