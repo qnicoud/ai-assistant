@@ -14,10 +14,7 @@ from ai_assistant.web import services
 
 
 def chat_page(request: HttpRequest) -> HttpResponse:
-    try:
-        models = services.get_backend().list_models()
-    except Exception:
-        models = []
+    models = services.list_chat_models()
     rag_available = services._rag is not None
     return render(request, "chat.html", {
         "active": "chat",

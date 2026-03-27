@@ -17,7 +17,7 @@ from ai_assistant.web import services
 
 def email_page(request: HttpRequest) -> HttpResponse:
     try:
-        models = services.get_backend().list_models()
+        models = services.list_chat_models()
     except Exception:
         models = []
 

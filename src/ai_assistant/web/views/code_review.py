@@ -23,7 +23,7 @@ _FOCUS_ADDITIONS: dict[str, str] = {
 
 def review_page(request: HttpRequest) -> HttpResponse:
     try:
-        models = services.get_backend().list_models()
+        models = services.list_chat_models()
     except Exception:
         models = []
     return render(request, "code_review.html", {

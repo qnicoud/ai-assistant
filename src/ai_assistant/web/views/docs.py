@@ -21,7 +21,7 @@ _jobs_lock = threading.Lock()
 
 def docs_page(request: HttpRequest) -> HttpResponse:
     try:
-        models = services.get_backend().list_models()
+        models = services.list_chat_models()
     except Exception:
         models = []
 

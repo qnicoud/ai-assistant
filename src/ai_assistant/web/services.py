@@ -71,6 +71,36 @@ def _shutdown_store() -> None:
             pass
 
 
+# Model name substrings that identify embedding-only models.
+# These should never appear in chat/generation model selectors.
+_EMBED_PATTERNS = ("embed",)
+
+
+def list_chat_models() -> list[str]:
+    """Return models suitable for chat, excluding embedding-only models.
+
+    The default model (from config) is always placed first so the UI
+    pre-selects the right choice without extra template logic.
+    """
+    try:
+        all_models = get_backend().list_models()
+    except Exception:
+        return []
+
+    chat_models = [
+        m for m in all_models
+        if not any(p in m.lower() for p in _EMBED_PATTERNS)
+    ]
+
+    # Ensure the configured default appears first
+    default = get_config().ollama.default_model
+    if default in chat_models and chat_models[0] != default:
+        chat_models.remove(default)
+        chat_models.insert(0, default)
+
+    return chat_models
+
+
 def get_config() -> "Config":
     if _config is None:
         raise RuntimeError("Services not initialized.")
