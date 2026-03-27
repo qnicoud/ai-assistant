@@ -130,8 +130,7 @@ form.addEventListener("submit", async e => {
   }
 
   try {
-    const resp = await postJSON("{% url 'settings_save' %}", payload);
-    const data = await resp.json();
+    const data = await postJSON("{% url 'settings_save' %}", payload);
     if (data.ok) {
       saveMsg.textContent = "Saved — services reloaded.";
       saveMsg.style.color = "var(--accent-primary)";

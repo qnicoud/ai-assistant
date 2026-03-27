@@ -92,11 +92,10 @@ const resultsError = document.getElementById("results-error");
 async function fetchMessages(query) {
   [resultsWrap, resultsEmpty, resultsError].forEach(el => el.style.display = "none");
   try {
-    const resp = await postJSON("{% url 'email_search' %}", {
+    const data = await postJSON("{% url 'email_search' %}", {
       query: query || "",
       limit: parseInt(limitSel.value),
     });
-    const data = await resp.json();
     if (data.error) {
       resultsError.textContent = data.error;
       resultsError.style.display = "";

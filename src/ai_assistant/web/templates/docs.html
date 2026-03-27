@@ -103,8 +103,7 @@ ingestBtn.addEventListener("click", async () => {
   ingestMsg.textContent = "Starting ingestion…";
 
   try {
-    const resp = await postJSON("{% url 'docs_ingest' %}", { path });
-    const data = await resp.json();
+    const data = await postJSON("{% url 'docs_ingest' %}", { path });
     if (data.error) {
       ingestMsg.textContent = `Error: ${data.error}`;
       ingestProgressWrap.style.display = "none";
@@ -180,8 +179,7 @@ document.addEventListener("click", async e => {
 
   const path = btn.dataset.path;
   try {
-    const resp = await postJSON("{% url 'docs_delete' %}", { path });
-    const data = await resp.json();
+    const data = await postJSON("{% url 'docs_delete' %}", { path });
     if (data.ok) refreshDocTable(data.documents);
     else alert(data.error || "Delete failed");
   } catch (err) {
