@@ -122,7 +122,7 @@ The `config.yaml` in the repo root is used automatically when running from the r
 
 ### Ollama setup (required for all install methods)
 
-Install Ollama, start the server, then pull models:
+Install Ollama, then start the server:
 
 ```bash
 # macOS
@@ -136,34 +136,93 @@ curl -fsSL https://ollama.com/install.sh | sh
 ollama serve &
 ```
 
-Choose models based on your RAM:
+Then pull models — see [Choosing models](#choosing-models) below.
 
-| RAM   | Code model              | General / Email model |
-|-------|-------------------------|-----------------------|
-| 16 GB | `ollama pull codestral` | `ollama pull mistral` |
-| 8 GB  | `ollama pull codellama` | `ollama pull mistral` |
+---
 
-For document RAG, also pull the embedding model (~275 MB):
+### Choosing models
+
+The application needs three models: one for **code tasks**, one for **chat and email**, and one for **document embeddings** (RAG). `install.sh` selects and pulls them automatically based on detected RAM, but you can pull them manually too.
+
+#### Source: Hugging Face (recommended — proxy-friendly)
+
+Ollama can pull GGUF models directly from Hugging Face with `ollama pull hf.co/<org>/<repo>:<quant>`. This bypasses the Ollama model registry entirely and works in environments where `ollama.com` is blocked.
+
+**16 GB RAM**
+
+| Role | Model | Pull command | Size |
+|------|-------|-------------|------|
+| Code review & generation | Qwen2.5-Coder-7B-Instruct Q4_K_M | `ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M` | ~4.7 GB |
+| Chat & email summary | Qwen2.5-7B-Instruct Q4_K_M | `ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M` | ~4.7 GB |
+| Document RAG embeddings | nomic-embed-text v1.5 Q8_0 | `ollama pull hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0` | ~270 MB |
+
+**8 GB RAM**
+
+| Role | Model | Pull command | Size |
+|------|-------|-------------|------|
+| Code review & generation | Qwen2.5-Coder-7B-Instruct Q3_K_M | `ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q3_K_M` | ~3.6 GB |
+| Chat & email summary | Qwen2.5-7B-Instruct Q3_K_M | `ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q3_K_M` | ~3.6 GB |
+| Document RAG embeddings | nomic-embed-text v1.5 Q8_0 | `ollama pull hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0` | ~270 MB |
+
+> **Quantisation guide:** `Q4_K_M` offers the best quality-to-size ratio for most tasks. `Q3_K_M` saves ~1 GB per model at a small quality cost. `Q8_0` is used for the embedding model because it is tiny and benefits from higher precision.
+
+`install.sh` automatically creates short aliases (`qwen2.5-coder-7b-instruct`, `qwen2.5-7b-instruct`, `nomic-embed-text`) so the default `config.yaml` works without modification.
+
+You can also reference a model by its full Hugging Face path directly in `config.yaml`:
+
+```yaml
+ollama:
+  default_model: "hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M"
+```
+
+#### Source: Ollama registry (if accessible)
+
+If your network allows direct access to `ollama.com`:
 
 ```bash
-ollama pull nomic-embed-text
+ollama pull codestral          # code tasks
+ollama pull mistral            # chat & email
+ollama pull nomic-embed-text   # RAG embeddings
 ```
+
+Update `config.yaml` accordingly:
+
+```yaml
+ollama:
+  default_model: "codestral"
+email:
+  summary_model: "mistral"
+```
+
+#### Behind a corporate proxy
+
+If **both** `ollama.com` and `huggingface.co` are blocked, set these environment variables before pulling:
+
+```bash
+export HTTPS_PROXY=http://proxy.company.com:8080
+export HF_ENDPOINT=https://your-hf-mirror   # if a mirror is available
+ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M
+```
+
+Ollama's Hugging Face integration respects `HTTPS_PROXY` automatically.
 
 ---
 
 ### Configuration
 
-The default `config.yaml` is copied to `~/.config/ai-assistant/config.yaml` on first install and works out of the box. Override values there or via environment variables:
+The default `config.yaml` is copied to `~/.config/ai-assistant/config.yaml` on first install. Override values there or via environment variables:
 
-| Variable               | Default                       | Description                       |
-|------------------------|-------------------------------|-----------------------------------|
-| `OLLAMA_URL`           | `http://127.0.0.1:11434`      | Ollama server URL                 |
-| `OLLAMA_MODEL`         | `codestral`                   | Default model for coding tasks    |
-| `OUTLOOK_DB_PATH`      | *(standard Outlook Mac path)* | Path to Outlook Data directory    |
-| `DOCS_DB_PATH`         | `~/.config/ai-assistant/docs.db` | Vector store location          |
-| `SHAREPOINT_CLIENT_ID` | —                             | Azure AD app client ID (optional) |
-| `SHAREPOINT_TENANT_ID` | —                             | Azure AD tenant ID (optional)     |
-| `SHAREPOINT_SITE_ID`   | —                             | SharePoint site ID (optional)     |
+| Variable               | Default                          | Description                        |
+|------------------------|----------------------------------|------------------------------------|
+| `OLLAMA_URL`           | `http://127.0.0.1:11434`         | Ollama server URL                  |
+| `OLLAMA_MODEL`         | `qwen2.5-coder-7b-instruct`      | Default model for coding tasks     |
+| `OUTLOOK_DB_PATH`      | *(standard Outlook Mac path)*    | Path to Outlook Data directory     |
+| `DOCS_DB_PATH`         | `~/.config/ai-assistant/docs.db` | Vector store location              |
+| `HTTPS_PROXY`          | —                                | Proxy for Ollama HF model pulls    |
+| `HF_ENDPOINT`          | `https://huggingface.co`         | Hugging Face mirror (optional)     |
+| `SHAREPOINT_CLIENT_ID` | —                                | Azure AD app client ID (optional)  |
+| `SHAREPOINT_TENANT_ID` | —                                | Azure AD tenant ID (optional)      |
+| `SHAREPOINT_SITE_ID`   | —                                | SharePoint site ID (optional)      |
 
 ---
 

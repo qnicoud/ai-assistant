@@ -231,6 +231,49 @@ install_config() {
 
 # ── Ollama guidance ───────────────────────────────────────────────────────────
 
+# Recommended models sourced from Hugging Face (proxy-friendly).
+# Format: "ollama_name|hf_path|description"
+MODELS_16GB=(
+  "qwen2.5-coder-7b-instruct|hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M|Code review & generation (7B, ~4.7 GB)"
+  "qwen2.5-7b-instruct|hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M|Chat & email summary (7B, ~4.7 GB)"
+  "nomic-embed-text|hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0|Embeddings for document RAG (~270 MB)"
+)
+MODELS_8GB=(
+  "qwen2.5-coder-7b-instruct|hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q3_K_M|Code review & generation (7B Q3, ~3.6 GB)"
+  "qwen2.5-7b-instruct|hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q3_K_M|Chat & email summary (7B Q3, ~3.6 GB)"
+  "nomic-embed-text|hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0|Embeddings for document RAG (~270 MB)"
+)
+
+# Detect total RAM in MB (best-effort, falls back to 16 GB tier)
+detect_ram_gb() {
+  local ram_mb=0
+  if [[ "${OS}" == "macos" ]]; then
+    ram_mb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 ))
+  elif [[ -r /proc/meminfo ]]; then
+    ram_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+  fi
+  echo $(( ram_mb / 1024 ))
+}
+
+pull_models() {
+  local -n model_list=$1
+  for entry in "${model_list[@]}"; do
+    local name hf_path desc
+    IFS='|' read -r name hf_path desc <<< "${entry}"
+    info "Pulling ${desc}…"
+    if ollama pull "${hf_path}"; then
+      # Create a short alias so config.yaml model names work out of the box
+      if [[ "${name}" != "${hf_path}" ]]; then
+        printf "FROM ${hf_path}\n" | ollama create "${name}" -f - 2>/dev/null || true
+      fi
+      success "${name} ready"
+    else
+      warn "Failed to pull ${hf_path}. You can retry later:"
+      warn "  ollama pull ${hf_path}"
+    fi
+  done
+}
+
 check_ollama() {
   header "Checking Ollama"
 
@@ -276,18 +319,39 @@ check_ollama() {
   model_count=$(ollama list 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
   if [[ "${model_count}" -eq 0 ]]; then
     warn "No models pulled yet."
-    printf "\n  Pull recommended models (codestral + mistral + nomic-embed-text)? [Y/n] "
+
+    # Detect RAM and pick the right tier
+    local ram_gb; ram_gb=$(detect_ram_gb)
+    local tier="16GB"
+    [[ "${ram_gb}" -lt 12 ]] && tier="8GB"
+
+    printf "\n  Detected ~%s GB RAM — using %s model tier.\n" "${ram_gb}" "${tier}"
+    printf "\n  Models are sourced from Hugging Face (proxy-friendly).\n"
+    printf "  Pull recommended models now? [Y/n] "
     read -r answer </dev/tty
     if [[ "${answer,,}" != "n" ]]; then
-      ollama pull codestral
-      ollama pull mistral
-      ollama pull nomic-embed-text
-      success "Models pulled"
+      if [[ "${tier}" == "8GB" ]]; then
+        pull_models MODELS_8GB
+      else
+        pull_models MODELS_16GB
+      fi
     else
-      info "Pull models later with:"
-      info "  ollama pull codestral"
-      info "  ollama pull mistral"
-      info "  ollama pull nomic-embed-text   # required for document RAG"
+      echo ""
+      info "Pull models later (16 GB RAM):"
+      for entry in "${MODELS_16GB[@]}"; do
+        IFS='|' read -r _ hf_path desc <<< "${entry}"
+        info "  ollama pull ${hf_path}   # ${desc}"
+      done
+      echo ""
+      info "Pull models later (8 GB RAM):"
+      for entry in "${MODELS_8GB[@]}"; do
+        IFS='|' read -r _ hf_path desc <<< "${entry}"
+        info "  ollama pull ${hf_path}   # ${desc}"
+      done
+      echo ""
+      info "If Hugging Face is also behind a proxy, set:"
+      info "  export HF_ENDPOINT=https://your-hf-mirror"
+      info "  export HTTPS_PROXY=http://proxy:port"
     fi
   else
     success "${model_count} model(s) available"
@@ -314,9 +378,16 @@ print_summary() {
     printf "    curl -fsSL https://ollama.com/install.sh | sh\n"
   fi
   printf "    ollama serve &\n"
-  printf "    ollama pull codestral\n"
-  printf "    ollama pull mistral\n"
-  printf "    ollama pull nomic-embed-text   # for document RAG\n"
+  printf "\n"
+  printf "  ${BOLD}Recommended models from Hugging Face (16 GB RAM):${RESET}\n\n"
+  printf "    ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M\n"
+  printf "    ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M\n"
+  printf "    ollama pull hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0\n"
+  printf "\n"
+  printf "  ${BOLD}Recommended models from Hugging Face (8 GB RAM):${RESET}\n\n"
+  printf "    ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q3_K_M\n"
+  printf "    ollama pull hf.co/bartowski/Qwen2.5-7B-Instruct-GGUF:Q3_K_M\n"
+  printf "    ollama pull hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF:Q8_0\n"
   echo ""
 }
 
