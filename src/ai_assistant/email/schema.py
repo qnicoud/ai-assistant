@@ -24,8 +24,8 @@ MESSAGES_DB = "Outlook.sqlite"
 # Table names
 # ---------------------------------------------------------------------------
 
-TABLE_MESSAGES = "Message"
-TABLE_FOLDERS = "Folder"
+TABLE_MESSAGES = "Mail"
+TABLE_FOLDERS = "Folders"
 TABLE_RECIPIENTS = "Recipient"
 TABLE_ADDRESSES = "Address"
 

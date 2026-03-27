@@ -78,17 +78,31 @@ class OutlookClient:
         ).fetchall()
         return [row[0] for row in rows]
 
+    def _list_columns(self, table: str) -> list[str]:
+        conn = self._require_connection()
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        return [row[1] for row in rows]  # column index 1 = name
+
     def _schema_error(self, exc: sqlite3.OperationalError) -> OutlookDBError:
         try:
             tables = self._list_tables()
             tables_str = ", ".join(tables) if tables else "(none found)"
         except Exception:
             tables_str = "(could not list tables)"
+        col_info = []
+        for tbl in (schema.TABLE_MESSAGES, schema.TABLE_FOLDERS):
+            try:
+                cols = self._list_columns(tbl)
+                col_info.append(f"  {tbl}: {', '.join(cols)}")
+            except Exception:
+                col_info.append(f"  {tbl}: (could not inspect)")
+        cols_str = "\n".join(col_info)
         return OutlookDBError(
             f"Outlook database query failed: {exc}\n"
             f"Tables present in the database: {tables_str}\n"
+            f"Columns in key tables:\n{cols_str}\n"
             "The expected schema may not match your Outlook version. "
-            "Please report the table list above so schema.py can be updated."
+            "Please report the information above so schema.py can be updated."
         )
 
     def list_folders(self) -> list[str]:
