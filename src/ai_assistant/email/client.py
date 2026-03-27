@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ai_assistant.config import EmailConfig
@@ -140,18 +140,13 @@ class OutlookClient:
 # Helpers
 # ---------------------------------------------------------------------------
 
-# Outlook for Mac stores timestamps as seconds since 2001-01-01 (Mac absolute time).
-_MAC_EPOCH = datetime(2001, 1, 1, tzinfo=timezone.utc)
-
-
 def _format_mac_date(value: object) -> str:
-    """Convert a Mac absolute time float to a human-readable local datetime string."""
+    """Convert an Outlook timestamp (Unix seconds) to a human-readable local datetime string."""
     if value is None:
         return ""
     try:
-        dt = _MAC_EPOCH + timedelta(seconds=float(value))
-        local_dt = dt.astimezone()   # convert to local timezone
-        return local_dt.strftime("%Y-%m-%d %H:%M")
+        dt = datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return dt.astimezone().strftime("%Y-%m-%d %H:%M")
     except (TypeError, ValueError, OSError):
         return str(value)
 
