@@ -20,7 +20,7 @@ BIN_DIR="${HOME}/.local/bin"
 CONFIG_DIR="${HOME}/.config/ai-assistant"
 UV_INSTALL_URL="https://astral.sh/uv/install.sh"
 PYTHON_VERSION="3.13"
-DEFAULT_EXTRAS="tui,docs"
+DEFAULT_EXTRAS="docs,web"
 IMAGE_NAME="ai-assistant"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
@@ -50,8 +50,8 @@ Usage: ./install.sh [OPTIONS]
 Options:
   --dev              Developer install: editable .venv inside the repo
   --docker           Build a Docker image and print run instructions
-  --extras LIST      Comma-separated extras to install (default: tui,docs)
-                     Available: tui, docs, graph, web
+  --extras LIST      Comma-separated extras to install (default: docs,web)
+                     Available: docs, web, graph
   --help             Show this help
 
 Modes:
@@ -255,6 +255,26 @@ detect_ram_gb() {
   echo $(( ram_mb / 1024 ))
 }
 
+# Return 0 if the named alias/model is already registered in Ollama.
+ollama_alias_exists() {
+  ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qF "$1"
+}
+
+# Create a short alias for an HF model path using a temp Modelfile.
+# `ollama create` handles fetching the model from HF if not yet cached locally.
+create_alias() {
+  local name="$1" hf_path="$2"
+  local tmp; tmp=$(mktemp /tmp/Modelfile.XXXXXX)
+  echo "FROM ${hf_path}" > "${tmp}"
+  if ollama create "${name}" -f "${tmp}"; then
+    success "Alias '${name}' → ${hf_path}"
+  else
+    warn "Failed to create alias '${name}'. Run manually:"
+    warn "  printf 'FROM ${hf_path}\\n' > /tmp/Modelfile && ollama create ${name} -f /tmp/Modelfile"
+  fi
+  rm -f "${tmp}"
+}
+
 pull_models() {
   local -n model_list=$1
   for entry in "${model_list[@]}"; do
@@ -262,18 +282,40 @@ pull_models() {
     IFS='|' read -r name hf_path desc <<< "${entry}"
     info "Pulling ${desc}…"
     if ollama pull "${hf_path}"; then
-      # Create a short alias so config.yaml model names work out of the box.
-      # ollama create requires a real file (-f -  stdin is not supported).
-      if [[ "${name}" != "${hf_path}" ]]; then
-        local tmp; tmp=$(mktemp /tmp/Modelfile.XXXXXX)
-        echo "FROM ${hf_path}" > "${tmp}"
-        ollama create "${name}" -f "${tmp}" 2>/dev/null || true
-        rm -f "${tmp}"
-      fi
-      success "${name} ready"
+      success "Downloaded: ${hf_path}"
     else
       warn "Failed to pull ${hf_path}. You can retry later:"
       warn "  ollama pull ${hf_path}"
+      continue
+    fi
+    # Create short alias so config.yaml model names work out of the box.
+    if [[ "${name}" != "${hf_path}" ]]; then
+      create_alias "${name}" "${hf_path}"
+    fi
+  done
+}
+
+# Ensure aliases exist for all models in the list, creating any that are missing.
+ensure_aliases() {
+  local -n model_list=$1
+  local any_missing=0
+  for entry in "${model_list[@]}"; do
+    local name hf_path _
+    IFS='|' read -r name hf_path _ <<< "${entry}"
+    if ! ollama_alias_exists "${name}"; then
+      any_missing=1
+      break
+    fi
+  done
+
+  [[ "${any_missing}" -eq 0 ]] && return 0
+
+  info "Some model aliases are missing — creating them now…"
+  for entry in "${model_list[@]}"; do
+    local name hf_path _
+    IFS='|' read -r name hf_path _ <<< "${entry}"
+    if ! ollama_alias_exists "${name}"; then
+      create_alias "${name}" "${hf_path}"
     fi
   done
 }
@@ -318,27 +360,24 @@ check_ollama() {
   fi
   success "Ollama server is running"
 
+  # Detect RAM and pick the right tier (used for both first-time pull and alias check)
+  local ram_gb; ram_gb=$(detect_ram_gb)
+  local tier="16GB"
+  [[ "${ram_gb}" -lt 12 ]] && tier="8GB"
+  local -n tier_models="MODELS_${tier}"
+
   # Check for pulled models
   local model_count
   model_count=$(ollama list 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
   if [[ "${model_count}" -eq 0 ]]; then
     warn "No models pulled yet."
 
-    # Detect RAM and pick the right tier
-    local ram_gb; ram_gb=$(detect_ram_gb)
-    local tier="16GB"
-    [[ "${ram_gb}" -lt 12 ]] && tier="8GB"
-
     printf "\n  Detected ~%s GB RAM — using %s model tier.\n" "${ram_gb}" "${tier}"
     printf "\n  Models are sourced from Hugging Face (proxy-friendly).\n"
     printf "  Pull recommended models now? [Y/n] "
     read -r answer </dev/tty
     if [[ "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" != "n" ]]; then
-      if [[ "${tier}" == "8GB" ]]; then
-        pull_models MODELS_8GB
-      else
-        pull_models MODELS_16GB
-      fi
+      pull_models "MODELS_${tier}"
     else
       echo ""
       info "Pull models later (16 GB RAM):"
@@ -359,6 +398,8 @@ check_ollama() {
     fi
   else
     success "${model_count} model(s) available"
+    # Models are present but aliases might be missing — always check and repair.
+    ensure_aliases "MODELS_${tier}"
   fi
 }
 
